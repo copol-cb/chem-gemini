@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>화학물질 관리 대장</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        .table th { background-color: #fff2cc; vertical-align: middle; font-size: 0.9rem; text-align: center; border-bottom: 2px solid #ddd; }
+        .table td { vertical-align: middle; font-size: 0.9rem; text-align: center; }
+        .merged-cell { vertical-align: middle !important; background-color: #ffffff; border-bottom: 1px solid #dee2e6; word-break: break-all; }
+        .filter-box { border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; background-color: #f8f9fa; }
+        .registrant-style { font-size: 0.75rem; color: #6c757d; display: block; margin-top: 2px; }
+        .detail-link { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .detail-link:hover { color: #ffcccc !important; font-weight: bold; }
+        .bg-trash-mode { background-color: #fff5f5 !important; }
+        .trash-header { background-color: #ffe6e6 !important; }
+
+        /* [수정됨] height: 100% 제거 */
+        .dashboard-section { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #fff; }
+        
+        .dashboard-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; border-left: 5px solid #333; padding-left: 10px; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        .stat-table th { background-color: #fff2cc; text-align: center; font-size: 0.85rem; vertical-align: middle; }
+        .stat-table td { text-align: center; font-size: 0.85rem; vertical-align: middle; }
+        .sub-info { font-size: 0.75rem; color: #666; display: block; margin-top: 2px; }
+    </style>
+</head>
+<body class="bg-white">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/list/">화학물질 관리시스템</a>
+            <span class="text-white ms-3 badge bg-secondary">접속중: {{ current_user_site }}</span>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/add/">📝 신규 등록</a>
+                <a class="nav-link active" href="/list/">📋 관리 대장(현황)</a>
+                <a class="nav-link text-danger ms-3" href="/logout/">🚪 나가기</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        
+        {% if current_mode == 'trash' %}
+        <div class="alert alert-danger d-flex align-items-center justify-content-between mb-3 py-2">
+            <div><strong>🗑️ 휴지통 모드</strong> : 삭제된 항목들입니다. 복구할 항목을 선택하고 [선택 복구]를 누르세요.</div>
+            <a href="/list/?mode=active" class="btn btn-sm btn-outline-dark">📋 정상 목록으로 돌아가기</a>
+        </div>
+        {% endif %}
+
+        {% if is_master %}
+        <form method="GET" action="{% url 'inventory_list' %}">
+            <input type="hidden" name="mode" value="{{ current_mode }}">
+            
+            <div class="filter-box mb-4 {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                <div class="row align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold mb-1">사업부 구분</label>
+                        <select name="division" id="division-select" class="form-select form-select-sm" onchange="updateSites()">
+                            <option value="">==전체==</option>
+                            <option value="제조본부" {% if selected_division == "제조본부" %}selected{% endif %}>제조본부</option>
+                            <option value="물류본부" {% if selected_division == "물류본부" %}selected{% endif %}>물류본부</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold mb-1">사업장 구분</label>
+                        <select name="site_name" id="site-select" class="form-select form-select-sm">
+                            <option value="">==전체==</option>
+                        </select>
+                        <input type="hidden" id="saved-site" value="{{ selected_site }}">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-sm btn-primary w-100">🔍 조회</button>
+                    </div>
+                    <div class="col-md-7 text-end align-self-end">
+                        
+                        <button type="button" class="btn btn-sm btn-success me-2" onclick="openDashboard()">
+                            ▦ 대시보드 보기
+                        </button>
+
+                        {% if current_mode == 'active' %}
+                            <a href="/list/" class="btn btn-sm btn-outline-secondary">초기화</a>
+                            <button type="submit" form="action-form" class="btn btn-sm btn-outline-danger ms-2" onclick="return confirm('선택한 항목을 휴지통으로 보내시겠습니까?');">
+                                🗑️ 선택 삭제
+                            </button>
+                            <div class="mt-2">
+                                <a href="/list/?mode=trash" class="btn btn-sm btn-secondary" style="font-size: 0.75rem;">
+                                    ♻️ 삭제된 항목 보기 (휴지통)
+                                </a>
+                            </div>
+                        {% else %}
+                            <a href="/list/?mode=trash" class="btn btn-sm btn-outline-secondary">초기화</a>
+                            <button type="submit" form="action-form" formaction="{% url 'inventory_restore_bulk' %}" class="btn btn-sm btn-success ms-2" onclick="return confirm('선택한 항목을 다시 복구하시겠습니까?');">
+                                ↩️ 선택 복구
+                            </button>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="alert alert-info mb-4 py-2">
+            <strong>{{ current_user_site }}</strong>의 데이터만 조회할 수 있습니다.
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-0">
+                <form id="action-form" method="POST" action="{% url 'inventory_delete_bulk' %}">
+                    {% csrf_token %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">등록일<br><span style="font-size: 0.8rem; font-weight: normal; color: #555;">(등록자)</span></th>
+                                    <th class="{% if current_mode == 'trash' %}trash-header{% endif %}">제품명</th>
+                                    <th style="width: 60px;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">성상</th>
+                                    <th style="width: 80px;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">용도</th>
+                                    
+                                    <th style="width: 8%;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">저장시설<br>용량(㎥)</th>
+                                    <th style="width: 8%;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">최대<br>보관량(kg)</th>
+                                    <th style="width: 8%;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">사용장소<br>/시설</th>
+                                    <th style="width: 9%;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">1회 최대<br>사용량(kg)<br><span style="font-size: 0.8rem; font-weight: normal; color: #555;">(희석수량(kg)/수조용량(㎥))</span></th>
+                                    
+                                    <th style="width: 6%;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">최대보유량<br>(톤)</th>
+                                    <th class="{% if current_mode == 'trash' %}trash-header{% endif %}">CAS No.</th>
+                                    <th class="{% if current_mode == 'trash' %}trash-header{% endif %}">화학물질명</th>
+                                    <th style="width: 70px;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">함량(%)</th>
+                                    <th class="{% if current_mode == 'trash' %}trash-header{% endif %}">규제 판정 결과</th>
+                                    
+                                    {% if is_master %}
+                                    <th style="width: 60px;" class="{% if current_mode == 'trash' %}trash-header{% endif %}">
+                                        <input type="checkbox" id="check-all" onclick="toggleAll(this)" style="cursor: pointer;">
+                                        <div style="font-size: 0.8rem;">
+                                            {% if current_mode == 'active' %}삭제{% else %}선택{% endif %}
+                                        </div>
+                                    </th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for group in grouped_items %}
+                                    {% for item in group.components %}
+                                    <tr>
+                                        {% if forloop.first %}
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                                <strong>{{ group.common.created_at|date:"Y." }}<br>{{ group.common.created_at|date:"m.d" }}</strong>
+                                                <span class="registrant-style">({{ group.common.registrant|default:"-" }})</span>
+                                            </td>
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell fw-bold {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">{{ group.common.product_name }}</td>
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">{{ group.common.state }}</td>
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">{{ group.common.usage_purpose }}
+                                                {% if group.common.usage_purpose == "6. 기타" and group.common.usage_detail %}
+                                                    <br><span class="sub-info">({{ group.common.usage_detail }})</span>
+                                                {% endif %}
+                                            </td>
+
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                                {% if group.common.is_storage %}
+                                                    {{ group.common.storage_vol }}
+                                                    <span class="sub-info">({{ group.common.specific_gravity }})</span>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                                {% if group.common.is_keeping %}
+                                                    {{ group.common.keeping_max }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                                {% if group.common.is_usage %}
+                                                    {{ group.common.usage_loc }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                                {% if group.common.is_usage %}
+                                                    {{ group.common.usage_max }}
+                                                    {% if group.common.water_input > 0 or group.common.usage_facility_vol > 0 %}
+                                                        <span class="sub-info">
+                                                            ({{ group.common.water_input }}kg / {{ group.common.usage_facility_vol }}㎥)
+                                                        </span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+
+                                            <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}" style="font-weight: bold; color: {% if current_mode == 'trash' %}#555{% else %}#0d6efd{% endif %};">
+                                                {{ group.total_ton|stringformat:".2f" }}
+                                            </td>
+                                        {% endif %}
+
+                                        <td class="{% if current_mode == 'trash' %}bg-trash-mode{% endif %}">{{ item.cas_no }}</td>
+                                        <td class="text-primary fw-bold text-start ps-3 {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">{{ item.chemical_name|default:"-" }}</td>
+                                        <td class="{% if current_mode == 'trash' %}bg-trash-mode{% endif %}">{{ item.percentage }}</td>
+                                        <td class="text-start {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                            {% if "__BcSplit__" in item.is_danger_result %}
+                                                <span class="badge">{{ item.is_danger_result }}</span>
+                                            {% else %}
+                                                {% if "규제대상" in item.is_danger_result %}
+                                                    <span class="badge bg-danger text-wrap text-start" style="line-height: 1.4;">{{ item.is_danger_result }}</span>
+                                                {% elif "안전" in item.is_danger_result %}
+                                                    <span class="badge bg-success">{{ item.is_danger_result }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ item.is_danger_result }}</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        {% if is_master and forloop.first %}
+                                        <td rowspan="{{ group.row_span }}" class="merged-cell {% if current_mode == 'trash' %}bg-trash-mode{% endif %}">
+                                            <input type="checkbox" name="selected_ids" value="{{ group.common.id }}" class="form-check-input item-check" style="cursor: pointer;">
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="{% if is_master %}14{% else %}13{% endif %}" class="text-muted py-5">
+                                            {% if current_mode == 'trash' %}휴지통이 비었습니다.{% else %}등록된 데이터가 없습니다.{% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+            </div>
+
+            {% if grouped_items.paginator.num_pages > 1 %}
+            <div class="card-footer bg-white border-top-0 d-flex justify-content-center py-3">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if grouped_items.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ grouped_items.previous_page_number }}&mode={{ current_mode }}&division={{ selected_division|default:'' }}&site_name={{ selected_site|default:'' }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                        {% endif %}
+
+                        {% for num in grouped_items.paginator.page_range %}
+                            {% if grouped_items.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}&mode={{ current_mode }}&division={{ selected_division|default:'' }}&site_name={{ selected_site|default:'' }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if grouped_items.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ grouped_items.next_page_number }}&mode={{ current_mode }}&division={{ selected_division|default:'' }}&site_name={{ selected_site|default:'' }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modal fade" id="dashboardModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered"> 
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">📊 화학물질 관리 대시보드</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="row h-100">
+                        <div class="col-md-5 d-flex align-items-stretch">
+                            <div class="dashboard-section w-100 h-100">
+                                <div class="dashboard-title">■ 등록 제품 수: <span id="dash-total-count" class="text-primary">{{ dashboard_data.total_count }}</span>건</div>
+                                <div class="dashboard-title mt-4">■ 용도별 구분</div>
+                                <div class="chart-container"><canvas id="usageChart"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="dashboard-section">
+                                <div class="dashboard-title">■ 등록 유해화학물질 수 (규제 판정 결과)</div>
+                                <table class="table table-bordered stat-table mt-3 mb-0">
+                                    <thead><tr><th>구분</th><th>최하위 규정수량<br>미만</th><th>최하위 이상<br>~ 하위 미만<br>(영업신고)</th><th>하위 규정수량<br>이상<br>(영업허가)</th><th>합계</th></tr></thead>
+                                    <tbody>
+                                        {% for dtype, stats in dashboard_data.danger_stats.items %}
+                                        <tr>
+                                            <td class="bg-light fw-bold">{{ dtype }}</td>
+                                            {% if dtype == "제한물질" or dtype == "금지물질" %}
+                                                <td colspan="3" class="text-muted bg-light"></td><td class="fw-bold">{{ stats.total }}</td>
+                                            {% else %}
+                                                <td>{{ stats.lowest }}</td><td>{{ stats.report }}</td><td>{{ stats.permission }}</td><td class="fw-bold">{{ stats.total }}</td>
+                                            {% endif %}
+                                        </tr>
+                                        {% endfor %}
+                                        <tr class="table-secondary fw-bold"><td>합계</td><td id="sum-lowest">0</td><td id="sum-report">0</td><td id="sum-permission">0</td><td id="sum-total">0</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% if is_master %}
+                            <div class="dashboard-section mt-3"><div class="dashboard-title">■ 영업신고 사업장</div><table class="table table-bordered stat-table mt-2 mb-0"><thead><tr><th>구분</th><th>영업인허가 구분</th><th></th><th></th><th></th></tr></thead><tbody><tr><td>안산공장</td><td>신고</td><td></td><td></td><td></td></tr><tr><td>용인1공장</td><td>X</td><td></td><td></td><td></td></tr><tr><td>용인2공장</td><td>X</td><td></td><td></td><td></td></tr><tr><td>제천공장</td><td>X</td><td></td><td></td><td></td></tr><tr><td>음성공장</td><td>허가</td><td></td><td></td><td></td></tr><tr><td>계룡공장</td><td>허가</td><td></td><td></td><td></td></tr><tr><td>구미공장</td><td>X</td><td></td><td></td><td></td></tr><tr><td>양산공장</td><td>X</td><td></td><td></td><td></td></tr></tbody></table></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="restrictionModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title fw-bold">🚫 세부 규제 내용</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><p id="modal-content-text"></p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button></div></div></div></div>
+    <div class="modal fade" id="deleteModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content"><div class="modal-header bg-warning text-dark"><h6 class="modal-title fw-bold">⚠️ 삭제 확인</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body text-center fw-bold py-4">정말 삭제하시겠습니까?</div><div class="modal-footer justify-content-center"><a id="delete-confirm-btn" href="#" class="btn btn-danger px-4">예</a><button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">아니오</button></div></div></div></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        var sites = {"제조본부": ["안산공장", "용인1공장", "용인2공장", "제천공장", "음성공장", "계룡공장", "구미공장", "양산공장"],"물류본부": ["동서울물류센터", "용인3물류센터", "호남물류센터", "양산2물류센터", "제주물류센터"]};
+        function updateSites() { var d=document.getElementById("division-select"),s=document.getElementById("site-select"); if(!d||!s)return; s.innerHTML='<option value="">==전체==</option>'; if(d.value in sites)sites[d.value].forEach(o=>{var opt=document.createElement("option");opt.value=o;opt.text=o;s.appendChild(opt);}); }
+        var dashboardModal, myChart=null;
+        function openDashboard() { dashboardModal.show(); setTimeout(drawChart, 200); calculateDangerSum(); }
+        function drawChart() {
+            var ctx = document.getElementById('usageChart').getContext('2d');
+            var usageData = JSON.parse('{{ dashboard_data.usage_stats|escapejs }}');
+            var labels = Object.keys(usageData);
+            var dataValues = Object.values(usageData);
+            
+            if(myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        // [수정] 색상 8개로 확충 (마지막 회색 계열 추가)
+                        backgroundColor: [
+                            '#4e73df', // 1. 파랑
+                            '#1cc88a', // 2. 초록
+                            '#36b9cc', // 3. 하늘
+                            '#f6c23e', // 4. 노랑
+                            '#e74a3b', // 5. 빨강
+                            '#858796', // 6. 회색
+                            '#5a5c69', // 7. 진회색
+                            '#d1d3e2'  // 8. 연회색 (미지정용)
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var val = context.raw;
+                                    var total = context.chart._metasets[context.datasetIndex].total;
+                                    var pct = total > 0 ? ((val/total)*100).toFixed(1) + "%" : "0%";
+                                    return context.label + ": " + val + "건 (" + pct + ")";
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        function calculateDangerSum() { 
+            var rows=document.querySelectorAll('.stat-table tbody tr'); 
+            var sL=0,sR=0,sP=0,sT=0; 
+            for(var i=0;i<rows.length-1;i++){ 
+                var c=rows[i].querySelectorAll('td'); 
+                if(c.length===5){
+                    // [수정] parseInt 안전 처리 (NaN 방지)
+                    sL+=(parseInt(c[1].innerText)||0);
+                    sR+=(parseInt(c[2].innerText)||0);
+                    sP+=(parseInt(c[3].innerText)||0);
+                    sT+=(parseInt(c[4].innerText)||0);
+                }else if(c.length===3){
+                    sT+=(parseInt(c[2].innerText)||0);
+                } 
+            } 
+            document.getElementById('sum-lowest').innerText=sL;
+            document.getElementById('sum-report').innerText=sR;
+            document.getElementById('sum-permission').innerText=sP;
+            document.getElementById('sum-total').innerText=sT; 
+        }
+        
+        function splitBadges() {
+            var badges = document.querySelectorAll('.badge');
+            badges.forEach(function(badge) {
+                var text = badge.innerText;
+                if (text.includes('__BcSplit__')) {
+                    var parts = text.split('__BcSplit__');
+                    var newHtml = '';
+                    parts.forEach(function(part) {
+                        var colorClass = 'bg-danger';
+                        if (part.includes('✅') || part.includes('규정수량 미만') || part.includes('규제수량 미만')) {
+                            colorClass = 'bg-success';
+                        }
+                        newHtml += `<div class="badge ${colorClass} text-start mb-1" style="display: block; width: fit-content; line-height: 1.3;">${part}</div>`;
+                    });
+                    badge.outerHTML = newHtml;
+                }
+            });
+        }
+
+        function parseRestrictions() { document.querySelectorAll('.badge').forEach(b => { if(b.innerText.includes('__DETAIL__')) { var t=b.innerText, s=t.indexOf('['), e=t.lastIndexOf(']'); if(s!==-1&&e!==-1) { var c=t.substring(s+1, e).split(' /// ').map(p=>{ if(p.includes('__DETAIL__')){var spl=p.split('__DETAIL__');return `<span class="detail-link" onclick="openRestrictionModal(this)" data-detail="${spl[1]}">${spl[0]} 🔍</span>`;}return p; }).join(', '); b.innerHTML=t.substring(0, s+1)+c+t.substring(e); } } }); }
+        function toggleAll(src) { document.querySelectorAll('.item-check').forEach(c=>c.checked=src.checked); }
+        var restrictionModal; function openRestrictionModal(el){ document.getElementById('modal-content-text').innerText=el.getAttribute('data-detail'); restrictionModal.show(); }
+        window.onload = function() {
+            dashboardModal = new bootstrap.Modal(document.getElementById('dashboardModal'));
+            restrictionModal = new bootstrap.Modal(document.getElementById('restrictionModal'));
+            var dSel=document.getElementById("division-select"), sSite=document.getElementById("saved-site")?document.getElementById("saved-site").value:"";
+            if(dSel&&dSel.value){ updateSites(); if(sSite)document.getElementById("site-select").value=sSite; }
+            splitBadges(); parseRestrictions();
+        }
+    </script>
+</body>
+</html>

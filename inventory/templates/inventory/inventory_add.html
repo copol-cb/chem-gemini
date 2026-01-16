@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>화학물질 등록</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .form-label-sm { font-size: 0.9rem; font-weight: bold; margin-bottom: 2px; }
+        .btn-add-row { background-color: #e2f0d9; color: #385723; border: 1px solid #385723; font-weight: bold; }
+        .btn-add-row:hover { background-color: #c5e0b4; color: #385723; }
+        
+        /* [복구됨] 숫자 입력창 화살표(스핀버튼) 제거 */
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* [유지] 제품 추가 버튼 스타일 (초록색 박스) */
+        .btn-product-add {
+            background-color: #fff;      
+            color: #198754;              
+            border: 2px solid #198754;   
+            font-weight: bold;
+            padding: 0.375rem 1rem;      
+            transition: all 0.2s ease-in-out; 
+        }
+        .btn-product-add:hover {
+            background-color: #198754;   
+            color: #fff;                 
+        }
+
+        /* [유지] 제품 블록 간 구분선 */
+        .product-block {
+            padding-bottom: 15px; 
+        }
+        .product-block + .product-block {
+            border-top: 3px solid #e9ecef; 
+            padding-top: 25px;             
+            margin-top: 15px;              
+        }
+    </style>
+</head>
+<body class="bg-white">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="/list/">화학물질 관리시스템</a>
+        <div class="navbar-nav ms-auto">
+            <a class="nav-link active" href="/add/">📝 신규 등록</a>
+            <a class="nav-link" href="/list/">📋 관리 대장</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="row mb-4 align-items-end bg-light p-3 rounded">
+            <div class="col-md-2">
+                <label class="form-label-sm">사업부 구분</label>
+                <select name="division" id="division-select" class="form-select form-select-sm" onchange="updateSites()">
+                    <option value="">==선택하세요==</option>
+                    <option value="제조본부">제조본부</option>
+                    <option value="물류본부">물류본부</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-sm">사업장 구분</label>
+                <select name="site_name" id="site-select" class="form-select form-select-sm">
+                    <option value="">==선택하세요==</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-sm">등록자</label>
+                <input type="text" name="registrant" class="form-control form-select-sm">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-product-add px-3" onclick="addProductBlock()">+ 제품 추가</button>
+            </div>
+        </div>
+
+        <hr>
+
+        <div id="product-list-area">
+            
+            <div class="product-block" data-index="0">
+                <div class="row g-3">
+                    
+                    <div class="col-md-7">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label-sm">제품명</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="product_name_0" class="form-control" placeholder="==MSDS의 제품명 기준==" required>
+                                    <button class="btn btn-outline-danger" type="button" onclick="removeProductBlock(this)">제품 삭제</button>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label-sm">성상</label>
+                                <select name="state_0" class="form-select form-select-sm">
+                                    <option value="">==선택하세요==</option>
+                                    <option value="액체">액체</option>
+                                    <option value="기체">기체</option>
+                                    <option value="고체">고체</option>
+                                    <option value="반고체">반고체</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label-sm">용도</label>
+                                <div class="d-flex">
+                                    <select name="usage_purpose_0" class="form-select form-select-sm me-2" onchange="toggleEtcInput(this)">
+                                        <option value="">==선택하세요==</option>
+                                        <option value="1. 원료 및 첨가제">1. 원료 및 첨가제</option>
+                                        <option value="2. 공정보조물질">2. 공정보조물질</option>
+                                        <option value="3. 시설/설비 유지보수">3. 시설/설비 유지보수</option>
+                                        <option value="4. 시험용 시약">4. 시험용 시약</option>
+                                        <option value="5. 폐수처리약품">5. 폐수처리약품</option>
+                                        <option value="6. 보관/저장(운송업/창고업 해당)">6. 보관/저장</option>
+                                        <option value="7. 기타">7. 기타</option>
+                                    </select>
+                                    <div class="etc-input-area d-none w-100">
+                                        <input type="text" name="usage_detail_0" class="form-control form-control-sm" placeholder="기타 상세">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12 mt-4"> 
+                                <div class="d-flex align-items-center">
+                                    <div class="form-check me-3" style="min-width: 110px;">
+                                        <input class="form-check-input" type="checkbox" name="is_storage_0" id="chk_storage_0" onchange="toggleFacilityInputs(this)">
+                                        <label class="form-check-label fw-bold text-danger border border-danger rounded px-2" for="chk_storage_0">저장시설</label>
+                                    </div>
+                                    <div class="row g-1 flex-grow-1 d-none facility-inputs">
+                                        <div class="col-4">
+                                            <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">시설 위치</label>
+                                            <input type="text" name="storage_loc_0" class="form-control form-control-sm" placeholder="예: 폐수처리장">
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">시설 용량(m³)</label>
+                                            <input type="number" step="0.0000001" name="storage_vol_0" class="form-control form-control-sm" placeholder="저장탱크 등 용량">
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">비중</label>
+                                            <input type="number" step="0.0000001" name="specific_gravity_0" class="form-control form-control-sm" placeholder="제품의 비중">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="form-check me-3" style="min-width: 110px;">
+                                        <input class="form-check-input" type="checkbox" name="is_keeping_0" id="chk_keeping_0" onchange="toggleFacilityInputs(this)">
+                                        <label class="form-check-label fw-bold text-primary border border-primary rounded px-2" for="chk_keeping_0">보관시설</label>
+                                    </div>
+                                    <div class="row g-1 flex-grow-1 d-none facility-inputs">
+                                        <div class="col-6">
+                                            <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">보관 장소/시설</label>
+                                            <input type="text" name="keeping_loc_0" class="form-control form-control-sm" placeholder="예: 분석실 캐비닛">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">최대 보관량(kg)</label>
+                                            <input type="number" step="0.0000001" name="keeping_max_0" class="form-control form-control-sm" placeholder="최대로 보관하는 양">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="form-check me-3" style="min-width: 110px;">
+                                        <input class="form-check-input" type="checkbox" name="is_usage_0" id="chk_usage_0" onchange="toggleFacilityInputs(this)">
+                                        <label class="form-check-label fw-bold text-success border border-success rounded px-2" for="chk_usage_0">사용시설</label>
+                                    </div>
+                                    
+                                    <div class="row g-1 flex-grow-1 d-none facility-inputs">
+                                        
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-end mb-1" style="min-height: 35px;">
+                                                <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">사용 장소/시설</label>
+                                            </div>
+                                            <input type="text" name="usage_loc_0" class="form-control form-control-sm" placeholder="예: 가열실 후라이어">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-end mb-1" style="min-height: 35px;">
+                                                <label class="form-label-sm text-muted mb-0" style="font-size:0.75rem;">1회 최대사용량(kg)</label>
+                                            </div>
+                                            <input type="number" step="0.0000001" name="usage_max_0" class="form-control form-control-sm" placeholder="최대사용량">
+                                        </div>
+                                        
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-end mb-1" style="min-height: 35px;">
+                                                <div class="d-flex align-items-center">
+                                                    <input type="checkbox" class="form-check-input me-1" id="chk_water_0" style="width: 13px; height: 13px; margin-top:0;" onchange="toggleInputState(this)">
+                                                    <label class="form-label-sm text-muted mb-0" for="chk_water_0" style="font-size:0.75rem; cursor: pointer; line-height: 1.2;">※희석 사용 시</label>
+                                                </div>
+                                            </div>
+                                            <input type="number" step="0.0000001" name="water_input_0" class="form-control form-control-sm" placeholder="물 투입량(kg)" disabled>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-end mb-1" style="min-height: 35px;">
+                                                <div class="d-flex align-items-center">
+                                                    <input type="checkbox" class="form-check-input me-1" id="chk_vol_0" style="width: 13px; height: 13px; margin-top:0;" onchange="toggleInputState(this)">
+                                                    <label class="form-label-sm text-muted mb-0" for="chk_vol_0" style="font-size:0.75rem; cursor: pointer; line-height: 1.2;">※희석 사용 시<br>  수조가 있는 경우</label>
+                                                </div>
+                                            </div>
+                                            <input type="number" step="0.0000001" name="usage_facility_vol_0" class="form-control form-control-sm" placeholder="수조 용량(㎥)" disabled>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="col-md-5 border-start ps-4">
+                        <label class="form-label-sm text-primary">구성 성분 정보 (MSDS 참조)</label>
+                        
+                        <div class="cas-container">
+                            <div class="row g-2 mb-2 align-items-end">
+                                <div class="col-6">
+                                    <label class="form-label-sm">CAS No.</label>
+                                    <input type="text" name="cas_no_0[]" class="form-control form-control-sm" placeholder="예: 7697-37-2">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label-sm">함량(%)</label>
+                                    <input type="number" step="0.001" name="percentage_0[]" class="form-control form-control-sm" placeholder="최대값">
+                                </div>
+                                <div class="col-2">
+                                    <button type="button" class="btn btn-sm btn-add-row w-100" onclick="addCasRow(this, 0)">행 추가</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-12 text-end">
+                <button type="submit" class="btn btn-dark px-5">최종 등록 및 저장</button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<script>
+    // 1. 사업장 연동
+    function updateSites() {
+        var divisionSelect = document.getElementById("division-select");
+        var siteSelect = document.getElementById("site-select");
+        var selectedValue = divisionSelect.value;
+        var sites = {
+            "제조본부": ["안산공장", "용인1공장", "용인2공장", "제천공장", "음성공장", "계룡공장", "구미공장", "양산공장"],
+            "물류본부": ["동서울물류센터", "용인3물류센터", "호남물류센터", "양산2물류센터", "제주물류센터"]
+        };
+        siteSelect.innerHTML = '<option value="">==선택하세요==</option>';
+        if (selectedValue in sites) {
+            var options = sites[selectedValue];
+            for (var i = 0; i < options.length; i++) {
+                var optionTag = document.createElement("option");
+                optionTag.value = options[i];
+                optionTag.text = options[i];
+                siteSelect.appendChild(optionTag);
+            }
+        }
+    }
+
+    // ----------------------------------------------------
+    // 2. [제품 추가] 기능
+    // ----------------------------------------------------
+    function addProductBlock() {
+        const blocks = document.querySelectorAll('.product-block');
+        const newIndex = blocks.length; 
+
+        // 템플릿 복사
+        const template = document.querySelector('.product-block[data-index="0"]');
+        const newBlock = template.cloneNode(true);
+        
+        newBlock.setAttribute('data-index', newIndex);
+
+        // 1. 모든 input, select 초기화 및 name/id 업데이트
+        const inputs = newBlock.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            // (1) 값 및 체크 상태 초기화
+            if(input.type !== 'button') {
+                if(input.type === 'checkbox') {
+                    input.checked = false; 
+                } else {
+                    input.value = '';
+                }
+            }
+
+            // (2) ※ 표시된 항목들(물투입, 시설용량)은 초기화 시 disabled 처리
+            if(input.name && (input.name.includes('water_input') || input.name.includes('usage_facility_vol'))) {
+                input.disabled = true; // 새 줄에서는 다시 비활성화 상태로 시작
+            }
+
+            // (3) name 속성 업데이트 (_0 -> _1)
+            if (input.name) {
+                input.name = input.name.replace(/_\d+/, '_' + newIndex);
+            }
+            // (4) id 속성 업데이트 (라벨과 연결을 위해 필수!)
+            if (input.id) {
+                input.id = input.id.replace(/_\d+/, '_' + newIndex);
+            }
+        });
+
+        // 2. 라벨의 for 속성 업데이트 (이게 되어야 라벨을 클릭해도 체크됨)
+        const labels = newBlock.querySelectorAll('label');
+        labels.forEach(label => {
+            if (label.htmlFor) {
+                label.htmlFor = label.htmlFor.replace(/_\d+/, '_' + newIndex);
+            }
+        });
+
+        // 3. 숨겨져 있던 영역들 다시 숨김 처리 (초기 상태로 복구)
+        const facilityDivs = newBlock.querySelectorAll('.facility-inputs');
+        facilityDivs.forEach(div => div.classList.add('d-none'));
+
+        const etcArea = newBlock.querySelector('.etc-input-area');
+        if(etcArea) etcArea.classList.add('d-none');
+
+        // 4. 행 추가 버튼 등 이벤트 연결
+        const addBtn = newBlock.querySelector('.btn-add-row');
+        addBtn.setAttribute('onclick', `addCasRow(this, ${newIndex})`);
+
+        // 5. CAS 줄 초기화
+        const casContainer = newBlock.querySelector('.cas-container');
+        const casRows = casContainer.querySelectorAll('.row');
+        for(let i=1; i<casRows.length; i++) {
+            casRows[i].remove();
+        }
+
+        document.getElementById('product-list-area').appendChild(newBlock);
+    }
+
+    // ----------------------------------------------------
+    // 3. [제품 삭제] 기능 (중요: 삭제 후 번호 다시 매기기)
+    // ----------------------------------------------------
+    function removeProductBlock(btn) {
+        const blocks = document.querySelectorAll('.product-block');
+        // 최소 1개는 남겨야 함
+        if (blocks.length <= 1) {
+            alert("최소 1개의 제품 정보는 있어야 합니다.");
+            return;
+        }
+
+        // 해당 블록 삭제
+        btn.closest('.product-block').remove();
+
+        // [핵심] 남은 블록들의 번호(Index)를 0, 1, 2... 순서대로 다시 매김
+        reindexBlocks();
+    }
+
+    function reindexBlocks() {
+        const blocks = document.querySelectorAll('.product-block');
+        blocks.forEach((block, index) => {
+            // data-index 업데이트
+            block.setAttribute('data-index', index);
+
+            // 내부 input들의 name/id 업데이트
+            const inputs = block.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                if (input.name) {
+                    input.name = input.name.replace(/_\d+/, '_' + index);
+                }
+                if (input.id) {
+                    input.id = input.id.replace(/_\d+/, '_' + index);
+                }
+            });
+
+            // 라벨의 for 속성 업데이트
+            const labels = block.querySelectorAll('label');
+            labels.forEach(label => {
+                if (label.htmlFor) {
+                    label.htmlFor = label.htmlFor.replace(/_\d+/, '_' + index);
+                }
+            });
+
+            // 행 추가 버튼 업데이트
+            const addBtn = block.querySelector('.btn-add-row');
+            if(addBtn) {
+                addBtn.setAttribute('onclick', `addCasRow(this, ${index})`);
+            }
+        });
+    }
+
+    // ----------------------------------------------------
+    // 4. [행 추가] 기능 (CAS)
+    // ----------------------------------------------------
+    function addCasRow(btn, pIndex) {
+        var container = btn.closest('.col-md-5').querySelector('.cas-container');
+        
+        var newRowHtml = `
+            <div class="row g-2 mb-2 align-items-center">
+                <div class="col-6">
+                    <input type="text" name="cas_no_${pIndex}[]" class="form-control form-control-sm" placeholder="예: 7697-37-2">
+                </div>
+                <div class="col-4">
+                    <input type="number" step="0.001" name="percentage_${pIndex}[]" class="form-control form-control-sm" placeholder="최대값">
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeRow(this)">행 삭제</button>
+                </div>
+            </div>
+        `;
+        
+        var div = document.createElement('div');
+        div.innerHTML = newRowHtml;
+        container.appendChild(div);
+    }
+
+    function removeRow(btn) {
+        btn.closest('.row').remove();
+    }
+
+    // ----------------------------------------------------
+    // 5. [UI 토글] 기능들 (기타, 시설 체크박스)
+    // ----------------------------------------------------
+
+    // [기타 선택 시 입력창 토글 함수]
+    function toggleEtcInput(selectElement) {
+        // 1. 현재 선택한 select 박스의 바로 옆에 있는(같은 부모 아래) .etc-input-area 찾기
+        var parentDiv = selectElement.parentElement; 
+        var etcInputArea = parentDiv.querySelector('.etc-input-area');
+
+        // 2. 선택된 값이 "7. 기타"인지 확인
+        if (selectElement.value === "7. 기타") {
+            // 맞으면 보여주기 (d-none 제거)
+            etcInputArea.classList.remove('d-none');
+        } else {
+            // 아니면 숨기기 (d-none 추가)
+            etcInputArea.classList.add('d-none');
+            
+            // (센스) 숨길 때 기존에 썼던 내용이 있다면 지워줌
+            var inputField = etcInputArea.querySelector('input');
+            if (inputField) inputField.value = '';
+        }
+    }
+
+    // [NEW] 시설 체크박스 토글 함수
+    function toggleFacilityInputs(checkbox) {
+        var parentRow = checkbox.closest('.d-flex');
+        var inputsDiv = parentRow.querySelector('.facility-inputs');
+        var inputs = inputsDiv.querySelectorAll('input');
+
+        if (checkbox.checked) {
+            inputsDiv.classList.remove('d-none'); // 보이기
+        } else {
+            inputsDiv.classList.add('d-none');    // 숨기기
+            // 숨길 때 내용 초기화 (선택 사항)
+            inputs.forEach(function(input) {
+                input.value = '';
+            });
+        }
+    }
+
+    // [수정된 입력창 토글 함수] 구조가 바뀌어도 안전하게 찾습니다.
+    function toggleInputState(checkbox) {
+        // 1. 체크박스가 속한 '가장 가까운 기둥(col-md-3)'을 먼저 찾습니다.
+        var parentCol = checkbox.closest('.col-md-3');
+        
+        // 2. 그 기둥 안에 있는 '숫자 입력창(type=number)'을 찾습니다.
+        var inputField = parentCol.querySelector('input[type="number"]');
+        
+        // 3. 활성/비활성 처리
+        if (checkbox.checked) {
+            inputField.disabled = false; // 활성화 (흰색)
+            inputField.focus();          // 입력하기 편하게 포커스 이동
+        } else {
+            inputField.disabled = true;  // 비활성화 (회색)
+            inputField.value = '';       // 비활성 시 값 초기화
+        }
+    }
+</script>
+
+</body>
+</html>
