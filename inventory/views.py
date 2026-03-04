@@ -23,6 +23,15 @@ SITE_ACCESS_CODES = {
     "jj1005": "제주물류센터",
     "e002463": "MASTER", 
 }
+SITE_MAP = {
+    # 제조본부
+    "안산공장": "제조본부", "용인1공장": "제조본부", "용인2공장": "제조본부",
+    "제천공장": "제조본부", "음성공장": "제조본부", "계룡공장": "제조본부",
+    "구미공장": "제조본부", "양산공장": "제조본부",
+    # 물류본부
+    "동서울물류센터": "물류본부", "용인3물류센터": "물류본부", 
+    "호남물류센터": "물류본부", "양산2물류센터": "물류본부", "제주물류센터": "물류본부"
+}
 
 def inventory_access(request):
     if request.method == 'POST':
@@ -123,72 +132,88 @@ def calculate_total_ton(item):
 
 
 # ====================================================
-# [NEW] 대시보드 통계 계산 함수 (새로 추가됨)
+# [수정됨] 대시보드 통계 계산 함수 (제품 수 로직 개선)
 # ====================================================
 def calculate_dashboard_stats(items):
-    # 1. 등록 제품 수
-    total_count = items.count()
+    # 1. 변수 초기화
+    product_count = 0       # 제품 수 (묶음 단위)
+    prev_item = None        # 이전 아이템 비교용
 
-    # 2. 용도별 구분 (번호로 매칭하여 인식률 높임)
+    # 2. 통계 변수들
     usage_map = {
-        "1": "1. 원료 및 첨가제",
-        "2": "2. 공정보조물질",
-        "3": "3. 시설/설비 유지보수",
-        "4": "4. 시험용 시약",
-        "5": "5. 폐수처리약품",
-        "6": "6. 보관/저장(운송업/창고업 해당)",
+        "1": "1. 원료 및 첨가제", "2": "2. 공정보조물질", "3": "3. 시설/설비 유지보수",
+        "4": "4. 시험용 시약", "5": "5. 폐수처리약품", "6": "6. 보관/저장(운송업/창고업 해당)",
         "7": "7. 기타"
     }
-    # 카운트 초기화 (7번은 별도로)
     usage_counts = {label: 0 for label in usage_map.values()}
     usage_counts["8. 기타(미지정)"] = 0
 
-    # 3. 유해화학물질 통계 초기화
     danger_types = ["인체급성", "인체만성", "생태유해", "사고대비", "제한물질", "금지물질"]
     danger_stats = {
         dtype: {"lowest": 0, "report": 0, "permission": 0, "total": 0} 
         for dtype in danger_types
     }
-    
-    # [전체 아이템 순회하며 통계 집계]
+    grand_totals = {"lowest": 0, "report": 0, "permission": 0, "total": 0}
+
+    # 3. 전체 아이템 순회 (한 번의 루프로 제품 수 + 통계 모두 계산)
     for item in items:
-        # (1) 용도 카운팅 (앞글자 번호로 인식)
-        u_pur = str(item.usage_purpose).strip()
-        matched_code = u_pur[:1] # 첫 글자 ("1" 등) 추출
-        
-        if matched_code in usage_map:
-            label = usage_map[matched_code]
-            usage_counts[label] += 1
+        # ---------------------------------------------------
+        # [A] 제품 수 카운팅 (목록 뷰와 동일한 그룹화 로직)
+        # ---------------------------------------------------
+        is_new_group = False
+        if prev_item is None:
+            is_new_group = True
         else:
-            # 번호가 없거나 7번이면 미지정 처리
+            # 이름, 사업장, 등록자가 같고 시간 차이가 2초 미만이면 같은 그룹
+            time_diff = abs((item.created_at - prev_item.created_at).total_seconds())
+            is_same = (
+                item.product_name == prev_item.product_name and
+                item.registrant == prev_item.registrant and
+                item.site_name == prev_item.site_name and
+                time_diff < 2.0
+            )
+            if not is_same:
+                is_new_group = True
+        
+        if is_new_group:
+            product_count += 1
+            prev_item = item  # 그룹 기준점 갱신
+
+        # ---------------------------------------------------
+        # [B] 용도 및 유해화학물질 통계 (화학물질 단위 집계)
+        # ---------------------------------------------------
+        
+        # (1) 용도 카운팅
+        u_pur = str(item.usage_purpose).strip()
+        matched_code = u_pur[:1]
+        if matched_code in usage_map:
+            usage_counts[usage_map[matched_code]] += 1
+        else:
             usage_counts["8. 기타(미지정)"] += 1
 
         # (2) 유해화학물질 카운팅
         result_text = str(item.is_danger_result)
-        
-        # 안전한 물질은 통계에서 제외
-        if "안전" in result_text:
-            continue
+        if "안전" in result_text: continue
 
         for dtype in danger_types:
-            # 해당 규제 타입(예: 인체급성)이 결과 텍스트에 포함되어 있으면
             if dtype in result_text:
                 danger_stats[dtype]["total"] += 1
-                
-                # 금지/제한은 합계만 계산하고 상세 구분 생략
+                grand_totals["total"] += 1 
+
                 if dtype in ["제한물질", "금지물질"]:
                     continue
 
-                # 상세 구분: 해당 타입이 언급된 문맥에서 허가/신고 찾기
                 if "영업허가" in result_text and dtype in result_text:
                     danger_stats[dtype]["permission"] += 1
+                    grand_totals["permission"] += 1 
                 elif "영업신고" in result_text and dtype in result_text:
                     danger_stats[dtype]["report"] += 1
+                    grand_totals["report"] += 1 
                 else:
                     danger_stats[dtype]["lowest"] += 1
+                    grand_totals["lowest"] += 1 
 
-    return total_count, usage_counts, danger_stats
-
+    return product_count, usage_counts, danger_stats, grand_totals
 
 # ====================================================
 # [관리 대장 조회] (페이지네이션 적용됨)
@@ -227,10 +252,14 @@ def inventory_list(request):
             'is_master': False, 'current_user_site': user_site, 'current_mode': current_mode
         }
 
-    # 3. 대시보드 통계 (기존 로직 유지)
-    d_total, d_usage, d_danger = calculate_dashboard_stats(items)
+    # 3. 대시보드 통계 (수정됨: 반환값 4개 받기)
+    d_total, d_usage, d_danger, d_grand = calculate_dashboard_stats(items)
+    
     context_vars['dashboard_data'] = {
-        'total_count': d_total, 'usage_stats': json.dumps(d_usage), 'danger_stats': d_danger,
+        'total_count': d_total, 
+        'usage_stats': json.dumps(d_usage), 
+        'danger_stats': d_danger,
+        'grand_totals': d_grand, # [NEW] 템플릿으로 합계 정보 전달
     }
 
     # 4. 데이터 그룹화
@@ -273,26 +302,61 @@ def inventory_list(request):
 
 
 # ====================================================
-# [신규 등록]
+# [신규 등록] (수정 완료: 파일 없어도 저장 가능, 중복 코드 제거)
 # ====================================================
 def inventory_add(request):
+    # [1] 세션에서 로그인 정보 가져오기
+    user_site = request.session.get('allowed_site')
+    if not user_site:
+        return redirect('inventory_access')
+
+    # [2] 관리자 여부 판별
+    is_master = (user_site == 'MASTER')
+    
+    # [3] 일반 사용자용 본부 자동 찾기
+    user_division = ""
+    if not is_master:
+        user_division = SITE_MAP.get(user_site, "")
+
     if request.method == 'POST':
-        input_division = request.POST.get('division')
-        input_site = request.POST.get('site_name')
+        # [4] 사업장 정보 결정
+        if is_master:
+            final_division = request.POST.get('division')
+            final_site = request.POST.get('site_name')
+        else:
+            final_division = user_division
+            final_site = user_site
+
+        # 나머지 입력값 가져오기
         input_registrant = request.POST.get('registrant')
-        current_time = timezone.now() 
+        current_time = timezone.now()
 
         index = 0
         while True:
+            # 제품명 키 확인 (없으면 루프 종료)
             p_name_key = f'product_name_{index}'
             if p_name_key not in request.POST: break
             
             product_name = request.POST.get(p_name_key)
+            
+            # [MSDS 파일 처리]
+            msds_file_obj = request.FILES.get(f'msds_file_{index}')
+            
+            # 1. 파일 필수 체크 해제 (보안 정책 반영: 파일 없어도 통과)
+            if not is_master and not msds_file_obj:
+                pass # 파일이 없어도 에러 없이 진행
+
+            # 2. 파일이 있다면 확장자 검사 (.pdf만 허용)
+            if msds_file_obj:
+                filename = str(msds_file_obj.name).lower()
+                if not filename.endswith('.pdf'):
+                    msds_file_obj = None # PDF가 아니면 저장 안 함
+
             state = request.POST.get(f'state_{index}')
             purpose = request.POST.get(f'usage_purpose_{index}')
             detail_input = request.POST.get(f'usage_detail_{index}')
             
-            # 시설 정보
+            # 시설 정보 가져오기
             is_storage_chk = request.POST.get(f'is_storage_{index}') == 'on'
             s_loc = request.POST.get(f'storage_loc_{index}')
             try: s_vol = float(request.POST.get(f'storage_vol_{index}'))
@@ -319,28 +383,41 @@ def inventory_add(request):
 
             for i in range(len(cas_list)):
                 current_cas = cas_list[i].strip()
-                current_percent_str = percent_list[i]
+                current_percent_str = percent_list[i].strip() # [수정] 문자열 그대로 가져옴
                 if not current_cas: continue 
 
-                try: percent_val = float(current_percent_str)
-                except: percent_val = 0.0
+                # [수정됨] 함량 처리 로직 (핵심!)
+                # 1. 계산용 숫자 변수 (percent_calc_val)
+                # 2. 저장용 문자 변수 (percent_save_val)
+                
+                percent_calc_val = 0.0 # 기본값 0 (텍스트일 경우 계산에서 제외됨)
+                percent_save_val = current_percent_str
 
-                # [톤수 계산]
+                # 숫자로 변환 시도
+                try:
+                    percent_calc_val = float(current_percent_str)
+                except ValueError:
+                    # 변환 실패 = 텍스트임 (예: "영업비밀")
+                    # 계산용 값은 0.0으로 유지, 저장용 값은 텍스트 그대로 유지
+                    percent_calc_val = 0.0
+
+                # [톤수 계산] -> 계산용 변수(percent_calc_val) 사용
                 current_total_ton = 0.0
                 if is_storage_chk: current_total_ton += (s_vol * s_sg)
                 if is_keeping_chk: current_total_ton += (k_max / 1000.0)
                 if is_usage_chk:
                     temp_data = {'usage_max': u_max, 'water_input': u_water, 'usage_facility_vol': u_vol, 'cas_no': current_cas}
-                    usage_ton = calculate_usage_ton_process(temp_data, percent_val)
+                    # 여기서도 숫자형 값을 넘겨줍니다
+                    usage_ton = calculate_usage_ton_process(temp_data, percent_calc_val)
                     current_total_ton += usage_ton
                 
                 daily_usage_ton = current_total_ton
 
-                # [규제 판정]
+                # [규제 판정 로직] -> 계산용 변수(percent_calc_val) 사용
                 reg_candidates = ChemicalRegulation.objects.filter(cas_no=current_cas)
                 msgs_concentration = set()
                 msgs_quantity = set()
-                is_general_chem = False 
+                is_general_chem = False
                 has_record = reg_candidates.exists()
                 
                 for reg in reg_candidates:
@@ -351,11 +428,10 @@ def inventory_add(request):
                         is_general_chem = True
                         continue
 
-                    # 희석 농도 재계산
-                    compare_percent = percent_val
+                    compare_percent = percent_calc_val
                     if is_usage_chk and u_water > 0 and u_vol > 0:
                          if (u_max + u_water) > 0:
-                             compare_percent = (u_max * percent_val) / (u_max + u_water)
+                             compare_percent = (u_max * percent_calc_val) / (u_max + u_water)
                     
                     if compare_percent >= limit_conc:
                         if '금지' in reg_type: 
@@ -368,22 +444,17 @@ def inventory_add(request):
                         if '급성' in reg_type: msgs_concentration.add(f"☣️ 인체급성({limit_conc}% 이상)")
                         if '만성' in reg_type: msgs_concentration.add(f"☣️ 인체만성({limit_conc}% 이상)")
                         if '생태' in reg_type: msgs_concentration.add(f"☣️ 생태유해({limit_conc}% 이상)")
-                        # [추가] 금지/제한 물질은 수량과 상관없이 메시지 추가
-                        if '금지' in reg_type:
-                            msgs_quantity.add("🚫 취급 금지 대상 (수량 무관)")
-                        if '제한' in reg_type:
-                            msgs_quantity.add("🚫 용도 제한 대상 (수량 무관)")
+                        
+                        if '금지' in reg_type: msgs_quantity.add("🚫 취급 금지 대상 (수량 무관)")
+                        if '제한' in reg_type: msgs_quantity.add("🚫 용도 제한 대상 (수량 무관)")
                         if not any(k in reg_type for k in ['금지','제한','사고','급성','만성','생태']):
                              msgs_concentration.add(f"⚠️ {reg_type}({limit_conc}% 이상)")
 
-                        # [메시지 2] 취급량 규제 판정
                         if any(k in reg_type for k in ['사고', '급성', '만성', '생태']):
                             qty_lowest = reg.limit_qty_lowest if reg.limit_qty_lowest else 0.0
                             qty_lower = reg.limit_qty_lower if reg.limit_qty_lower else 0.0
                             
-                            # 기준 정보가 아예 없으면 넘어감
-                            if qty_lowest == 0 and qty_lower == 0:
-                                pass 
+                            if qty_lowest == 0 and qty_lower == 0: pass 
                             else:
                                 short_type_name = reg_type
                                 if '사고' in reg_type: short_type_name = "사고대비"
@@ -396,7 +467,6 @@ def inventory_add(request):
                                 elif daily_usage_ton >= qty_lowest:
                                     msgs_quantity.add(f"⚠️ {short_type_name}(영업신고 대상)")
                                 else:
-                                    # [NEW] 여기가 핵심입니다! (기준 미만일 때 명확한 메시지 추가)
                                     msgs_quantity.add(f"✅ {short_type_name}(규정수량 미만)")
 
                 final_parts = []
@@ -412,15 +482,26 @@ def inventory_add(request):
                 elif has_record: is_danger_result = "✅ 안전 (규제미만)"
                 else: is_danger_result = "✅ 안전 (정보없음)"
 
+                # [화학물질 공식 명칭 찾기]
                 official_name = ""
                 found_chems = ChemicalRegulation.objects.filter(cas_no=current_cas)
                 candidate_names = [c.name_korean.split('[')[0].strip() for c in found_chems if c.name_korean]
-                if candidate_names: official_name = min(candidate_names, key=len)
+                if candidate_names: 
+                    official_name = min(candidate_names, key=len)
 
+                # [DB 저장] (여기가 최종 저장 코드입니다. 중복 없음!)
                 MyInventory.objects.create(
-                    division=input_division, site_name=input_site, registrant=input_registrant,
-                    product_name=product_name, cas_no=current_cas, chemical_name=official_name,
-                    percentage=percent_val, state=state, usage_purpose=purpose, usage_detail=detail_input,
+                    division=final_division, 
+                    site_name=final_site,
+                    registrant=input_registrant,
+                    product_name=product_name, 
+                    msds_file=msds_file_obj, 
+                    cas_no=current_cas, 
+                    chemical_name=official_name,
+                    percentage=percent_save_val, 
+                    state=state, 
+                    usage_purpose=purpose, 
+                    usage_detail=detail_input,
                     is_storage=is_storage_chk, storage_loc=s_loc, storage_vol=s_vol, specific_gravity=s_sg,
                     is_keeping=is_keeping_chk, keeping_loc=k_loc, keeping_max=k_max, 
                     is_usage=is_usage_chk, usage_loc=u_loc, usage_max=u_max, water_input=u_water, usage_facility_vol=u_vol,
@@ -428,8 +509,13 @@ def inventory_add(request):
                 )
             index += 1
         return redirect('inventory_list')
-    return render(request, 'inventory/inventory_add.html')
 
+    # [5] GET 요청 시 (템플릿에 정보 전달)
+    return render(request, 'inventory/inventory_add.html', {
+        'current_user_site': user_site,
+        'is_master': is_master,
+        'user_division': user_division 
+    })
 def inventory_delete(request, pk):
     if request.session.get('allowed_site') != 'MASTER':
         return redirect('inventory_list')

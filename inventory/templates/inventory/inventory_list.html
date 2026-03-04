@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+{% load static %}<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>화학물질 관리 대장</title>
@@ -25,18 +25,54 @@
         .stat-table th { background-color: #fff2cc; text-align: center; font-size: 0.85rem; vertical-align: middle; }
         .stat-table td { text-align: center; font-size: 0.85rem; vertical-align: middle; }
         .sub-info { font-size: 0.75rem; color: #666; display: block; margin-top: 2px; }
+        /* [NEW] Q&A 검색 버튼 커스텀 스타일 */
+        .btn-qna-custom {
+            display: flex;               /* 내부 요소 가로 정렬 */
+            align-items: center;         /* 수직 중앙 정렬 */
+            border: 1px solid #ced4da;   /* 회색 테두리 */
+            border-radius: 50px;         /* 둥근 캡슐 모양 */
+            background-color: white;     /* 흰색 배경 */
+            padding: 5px 15px;           /* 내부 여백 */
+            color: black;                /* 기본 글자색 */
+            text-decoration: none;       /* 링크 밑줄 제거 */
+            transition: all 0.2s ease-in-out; /* 부드러운 효과 */
+        }
+        .btn-qna-custom:hover {
+            background-color: #f8f9fa;   /* 호버 시 약간 회색 배경 */
+            border-color: #adb5bd;       /* 호버 시 테두리 진하게 */
+            color: black;                /* 글자색 유지 */
+        }
+        .qna-title {
+            font-weight: bold;           /* Q&A는 굵게 */
+            font-size: 1.1rem;
+            margin-right: 5px;
+        }
+        .qna-desc {
+            color: #6c757d;              /* 회색 글자 */
+            font-style: italic;          /* 기울임꼴 */
+            font-size: 0.9rem;
+            margin-left: 8px;            /* 아이콘과 간격 */
+        }
     </style>
 </head>
 <body class="bg-white">
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/list/">화학물질 관리시스템</a>
+            <a class="navbar-brand d-flex align-items-center" href="/list/">
+    <img src="{% static 'logo.png' %}" alt="로고" width="45" height="45" class="me-2 bg-white rounded-circle p-1">
+    화학물질 안전관리시스템
+</a>
             <span class="text-white ms-3 badge bg-secondary">접속중: {{ current_user_site }}</span>
             <div class="navbar-nav ms-auto">
+                <a class="btn-qna-custom ms-3" href="https://notebooklm.google.com/notebook/d4783d99-b22d-475c-a4f0-65fd8c9519f5?authuser=1" target="_blank">
+                    <span class="qna-title">Q&A</span>
+                    <span style="font-size: 1.1rem;">💡</span>
+                    <span class="qna-desc">화학물질관리법과 관련한 궁금한 점을 검색!</span>
+                </a>
                 <a class="nav-link" href="/add/">📝 신규 등록</a>
-                <a class="nav-link active" href="/list/">📋 관리 대장(현황)</a>
-                <a class="nav-link text-danger ms-3" href="/logout/">🚪 나가기</a>
+                <a class="nav-link active" href="/list/">📋 관리 대장</a>
+                <a class="nav-link text-danger ms-3" href="/logout/">🚪 로그아웃</a>
             </div>
         </div>
     </nav>
@@ -77,7 +113,7 @@
                     <div class="col-md-7 text-end align-self-end">
                         
                         <button type="button" class="btn btn-sm btn-success me-2" onclick="openDashboard()">
-                            ▦ 대시보드 보기
+                            📊 대시보드 보기
                         </button>
 
                         {% if current_mode == 'active' %}
@@ -102,8 +138,13 @@
             </div>
         </form>
         {% else %}
-        <div class="alert alert-info mb-4 py-2">
-            <strong>{{ current_user_site }}</strong>의 데이터만 조회할 수 있습니다.
+        <div class="alert alert-info mb-4 py-2 d-flex justify-content-between align-items-center">
+            <div>
+                <strong>{{ current_user_site }}</strong>의 데이터만 조회할 수 있습니다.
+            </div>
+            <button type="button" class="btn btn-sm btn-success shadow-sm" onclick="openDashboard()">
+                📊 대시보드 보기
+            </button>
         </div>
         {% endif %}
 
@@ -307,7 +348,13 @@
                                             {% endif %}
                                         </tr>
                                         {% endfor %}
-                                        <tr class="table-secondary fw-bold"><td>합계</td><td id="sum-lowest">0</td><td id="sum-report">0</td><td id="sum-permission">0</td><td id="sum-total">0</td></tr>
+                                        <tr class="table-secondary fw-bold">
+                                            <td class="text-center">합계</td>
+                                            <td class="text-center">{{ dashboard_data.grand_totals.lowest }}</td>
+                                            <td class="text-center">{{ dashboard_data.grand_totals.report }}</td>
+                                            <td class="text-center">{{ dashboard_data.grand_totals.permission }}</td>
+                                            <td class="text-center">{{ dashboard_data.grand_totals.total }}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -322,8 +369,67 @@
         </div>
     </div>
 
+<style>
+    /* reasonModalContent 안쪽에 있는 모든 요소(*)의 글자색을 검은색으로, 배경은 투명하게 강제 적용 */
+    #reasonModalContent,
+    #reasonModalContent * {
+        color: #212529 !important; 
+        background-color: transparent !important;
+        background: none !important;
+        box-shadow: none !important;
+    }
+</style>
+
+<div class="modal fade" id="reasonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">✅ 안전 판정 상세 이유</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="reasonModalDesc" class="text-secondary fw-bold mb-3" style="font-size: 0.95rem;">
+                </p>
+                <div id="reasonModalContent" class="p-3 bg-light border rounded lh-lg text-dark text-break" style="word-break: keep-all; color: #212529 !important;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #reasonModalContent, #reasonModalContent *,
+    #dangerModalContent, #dangerModalContent * {
+        color: #212529 !important; 
+        background-color: transparent !important;
+        background: none !important;
+        box-shadow: none !important;
+        /* [NEW] 어떤 긴 문장이나 단어도 무조건 박스 안에서 줄바꿈되도록 강제 */
+        white-space: normal !important; 
+        word-break: break-all !important; 
+    }
+</style>
+
+<div class="modal fade" id="dangerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="dangerModalTitle">⚠️ 규제 대상 판정 상세 이유</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="dangerModalDesc" class="text-secondary fw-bold mb-3" style="font-size: 0.95rem;">
+                </p>
+                <div id="dangerModalContent" class="p-3 bg-light border rounded lh-lg text-dark text-break" style="word-break: keep-all;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
     <div class="modal fade" id="restrictionModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title fw-bold">🚫 세부 규제 내용</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><p id="modal-content-text"></p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button></div></div></div></div>
     <div class="modal fade" id="deleteModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content"><div class="modal-header bg-warning text-dark"><h6 class="modal-title fw-bold">⚠️ 삭제 확인</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body text-center fw-bold py-4">정말 삭제하시겠습니까?</div><div class="modal-footer justify-content-center"><a id="delete-confirm-btn" href="#" class="btn btn-danger px-4">예</a><button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">아니오</button></div></div></div></div>
+
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -428,6 +534,136 @@
             if(dSel&&dSel.value){ updateSites(); if(sSite)document.getElementById("site-select").value=sSite; }
             splitBadges(); parseRestrictions();
         }
+    
+
+    // [실행 트리거] 모달이 열릴 때마다 이 함수를 실행해야 합니다.
+    var dashboardModal = document.getElementById('dashboardModal'); // 모달 ID 확인
+    if (dashboardModal) {
+        dashboardModal.addEventListener('shown.bs.modal', function () {
+            updateDashboardTableSum(); // 모달 열릴 때 합계 다시 계산!
+        });
+    }
+
+    // ====================================================
+    // [수정됨] 안전 항목 및 규제 항목 뱃지 처리 (오류 수정 및 멀티 규제 지원)
+    // ====================================================
+    document.addEventListener("DOMContentLoaded", function() {
+        var tds = document.querySelectorAll('tbody td');
+        
+        tds.forEach(function(td) {
+            var htmlContent = td.innerHTML.trim();
+            var textContent = td.innerText.trim();
+            
+            if (htmlContent.includes('규제 기준농도') || htmlContent.includes('규제 판정:')) {
+                // '금지' 단어 오인식 방지를 위해 정확한 키워드로 검색
+                var isBan = htmlContent.includes('금지물질') || htmlContent.includes('용도 금지');
+                var isPermit = htmlContent.includes('영업허가');
+                var isRestrict = htmlContent.includes('제한물질') || htmlContent.includes('용도 제한');
+                var isReport = htmlContent.includes('영업신고');
+                
+                var needsAction = isBan || isPermit || isRestrict || isReport;
+                var encodedHtml = encodeURIComponent(htmlContent);
+
+                if (!needsAction) {
+                    // 1. 안전한 경우
+                    var safeButton = `
+                        <button type="button" class="btn btn-sm btn-success fw-bold rounded-pill shadow-sm py-1 px-2" 
+                                onclick="showReasonModal('${encodedHtml}', 'qty')">
+                            ✅ 안전 (해당없음)
+                        </button>
+                    `;
+                    td.innerHTML = safeButton;
+                } else {
+                    // 2. [NEW] 조치가 필요한 경우 (규제가 여러 개면 합쳐서 보여줌)
+                    var badgeTexts = [];
+                    var btnClass = 'btn-warning text-dark'; // 기본 노란색
+                    var dangerType = 'report';
+
+                    // 심각한 규제일수록 버튼 색상을 우선적으로 덮어씌움
+                    if (isReport)   { badgeTexts.push('⚠️영업신고 대상'); }
+                    if (isRestrict) { badgeTexts.push('🛑제한물질'); btnClass = 'btn-secondary text-white'; dangerType = 'restrict'; }
+                    if (isPermit)   { badgeTexts.push('⚠️영업허가 대상'); btnClass = 'btn-danger text-white'; dangerType = 'permission'; }
+                    if (isBan)      { badgeTexts.push('🚫금지물질'); btnClass = 'btn-dark text-white'; dangerType = 'ban'; }
+
+                    // 배열에 담긴 텍스트를 " + " 기호로 연결 (예: "⚠️신고 + 🛑제한")
+                    var finalBtnText = badgeTexts.join(' + ');
+
+                    var dangerButton = `
+                        <button type="button" class="btn btn-sm ${btnClass} fw-bold rounded-pill shadow-sm py-1 px-2" 
+                                onclick="showDangerModal('${encodedHtml}', '${dangerType}')">
+                            ${finalBtnText}
+                        </button>
+                    `;
+                    td.innerHTML = dangerButton;
+                }
+            } 
+            else if (textContent.includes('✅ 안전')) {
+                var reasonType = 'general';
+                if (textContent.includes('규제미만')) reasonType = 'conc';
+
+                var encodedHtml = encodeURIComponent(htmlContent);
+                var safeButton = `
+                    <button type="button" class="btn btn-sm btn-success fw-bold rounded-pill shadow-sm py-1 px-2" 
+                            onclick="showReasonModal('${encodedHtml}', '${reasonType}')">
+                        ✅ 안전 (해당없음)
+                    </button>
+                `;
+                td.innerHTML = safeButton;
+            }
+        });
+    });
+
+    // 안전 판정 팝업 띄우기
+    function showReasonModal(encodedHtml, reasonType) {
+        var decodedHtml = decodeURIComponent(encodedHtml);
+        decodedHtml = decodedHtml.replace(/__BcSplit__/g, '<br><hr class="my-2 border-secondary">');
+        decodedHtml = decodedHtml.replace(/text-white/g, 'text-dark');
+        decodedHtml = decodedHtml.replace(/bg-danger|bg-success|bg-warning/g, '');
+        
+        document.getElementById('reasonModalDesc').innerHTML = 
+            (reasonType === 'qty') ? "해당 물질은 유해화학물질 농도 기준을 초과하지만, <span class='text-danger'>최대 보유량이 최하위 규정수량 미만</span>이므로 규제 이행 대상에서 제외되어 안전으로 판정되었습니다." :
+            (reasonType === 'conc') ? "해당 물질은 유해화학물질 <span class='text-primary'>지정 기준 농도(함량) 미만</span>이므로 규제 이행 대상에서 제외되어 안전으로 판정되었습니다." :
+            "해당 물질은 <span>일반화학물질</span>이거나 별도의 규제 대상 정보가 없어 안전으로 판정되었습니다.";
+        
+        document.getElementById('reasonModalContent').innerHTML = decodedHtml;
+        new bootstrap.Modal(document.getElementById('reasonModal')).show();
+    }
+
+    // 규제 판정 팝업 띄우기
+    function showDangerModal(encodedHtml, dangerType) {
+        var decodedHtml = decodeURIComponent(encodedHtml);
+        
+        // 1. 줄바꿈 및 색상 통일
+        decodedHtml = decodedHtml.replace(/__BcSplit__/g, '<br><hr class="my-2 border-secondary">');
+        
+        // 2. [NEW] 제한/금지물질의 긴 _DETAIL_ 텍스트를 보기 좋게 분리
+        decodedHtml = decodedHtml.replace(/_DETAIL_/g, '<br><br><b>🔍 [제한/금지 상세조건]</b><br>');
+        
+        // 3. 색상 초기화
+        decodedHtml = decodedHtml.replace(/text-white/g, 'text-dark');
+        decodedHtml = decodedHtml.replace(/bg-danger|bg-success|bg-warning/g, '');
+        
+        var descElem = document.getElementById('dangerModalDesc');
+        var titleElem = document.getElementById('dangerModalTitle');
+        
+        // (팝업창 안내 문구는 가장 강력한 규제를 기준으로 설명합니다)
+        if (dangerType === 'ban') {
+            titleElem.innerText = "🚫 금지물질 판정 상세 이유";
+            descElem.innerHTML = "해당 물질은 화학물질관리법상 <b>제조, 수입, 판매, 보관·저장, 운반, 사용이 금지된 물질</b>입니다.";
+        } else if (dangerType === 'permission') {
+            titleElem.innerText = "⚠️ 영업허가 대상 판정 상세 이유";
+            descElem.innerHTML = "해당 물질은 유해화학물질 농도 기준을 초과하며, <span class='text-danger'>최대 보유량이 하위 규정수량 이상</span>이므로 <b>영업허가 대상</b>에 해당합니다. 적법한 시설 기준 및 인허가 절차가 필요합니다.";
+        } else if (dangerType === 'restrict') {
+            titleElem.innerText = "🛑 제한물질 판정 상세 이유";
+            descElem.innerHTML = "해당 물질은 특정 용도로 사용이 제한되는 <b>제한물질</b>입니다. 하단의 상세조건을 확인하여 허가된 용도 외 사용을 금합니다.";
+        } else {
+            titleElem.innerText = "⚠️ 영업신고 대상 판정 상세 이유";
+            descElem.innerHTML = "해당 물질은 유해화학물질 농도 기준을 초과하며, <span class='text-warning text-dark'>최대 보유량이 최하위 규정수량 이상 ~ 하위 규정수량 미만</span>이므로 <b>영업신고 대상</b>에 해당합니다.";
+        }
+        
+        document.getElementById('dangerModalContent').innerHTML = decodedHtml;
+        new bootstrap.Modal(document.getElementById('dangerModal')).show();
+    }
     </script>
 </body>
 </html>

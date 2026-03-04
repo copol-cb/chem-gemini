@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 
+
 urlpatterns = [
     # 메인 주소 (접속 시 리스트 화면으로 이동 -> 권한 없으면 로그인창 뜸)
     path('', views.inventory_list, name='inventory_list'),

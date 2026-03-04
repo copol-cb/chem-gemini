@@ -36,7 +36,7 @@ class MyInventory(models.Model):
     product_name = models.CharField(max_length=200, verbose_name="제품명")
     cas_no = models.CharField(max_length=50, verbose_name="제품 내 CAS No.")
     chemical_name = models.CharField(max_length=200, blank=True, verbose_name="화학물질명") 
-    percentage = models.FloatField(verbose_name="제품 내 함량(%)")
+    percentage = models.CharField(max_length=50, null=True, blank=True, verbose_name="함량(%)")
     
     # 성상
     STATE_CHOICES = [
@@ -76,6 +76,9 @@ class MyInventory(models.Model):
     
     # [NEW] 삭제 여부 (True면 휴지통에 있는 상태)
     is_deleted = models.BooleanField(default=False, verbose_name="삭제여부")
+    
+    # [추가] MSDS 파일 업로드 필드
+    msds_file = models.FileField(upload_to='msds_pdfs/', null=True, blank=True, verbose_name="MSDS 파일")
 
     def __str__(self):
         return f"[{self.division}/{self.site_name}] {self.product_name}"

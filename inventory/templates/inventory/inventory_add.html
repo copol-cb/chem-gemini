@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+{% load static %}<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>화학물질 등록</title>
@@ -42,47 +42,102 @@
             padding-top: 25px;             
             margin-top: 15px;              
         }
+        /* [NEW] Q&A 검색 버튼 커스텀 스타일 */
+        .btn-qna-custom {
+            display: flex;               /* 내부 요소 가로 정렬 */
+            align-items: center;         /* 수직 중앙 정렬 */
+            border: 1px solid #ced4da;   /* 회색 테두리 */
+            border-radius: 50px;         /* 둥근 캡슐 모양 */
+            background-color: white;     /* 흰색 배경 */
+            padding: 5px 15px;           /* 내부 여백 */
+            color: black;                /* 기본 글자색 */
+            text-decoration: none;       /* 링크 밑줄 제거 */
+            transition: all 0.2s ease-in-out; /* 부드러운 효과 */
+        }
+        .btn-qna-custom:hover {
+            background-color: #f8f9fa;   /* 호버 시 약간 회색 배경 */
+            border-color: #adb5bd;       /* 호버 시 테두리 진하게 */
+            color: black;                /* 글자색 유지 */
+        }
+        .qna-title {
+            font-weight: bold;           /* Q&A는 굵게 */
+            font-size: 1.1rem;
+            margin-right: 5px;
+        }
+        .qna-desc {
+            color: #6c757d;              /* 회색 글자 */
+            font-style: italic;          /* 기울임꼴 */
+            font-size: 0.9rem;
+            margin-left: 8px;            /* 아이콘과 간격 */
+        }
     </style>
 </head>
 <body class="bg-white">
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container">
-        <a class="navbar-brand" href="/list/">화학물질 관리시스템</a>
-        <div class="navbar-nav ms-auto">
-            <a class="nav-link active" href="/add/">📝 신규 등록</a>
-            <a class="nav-link" href="/list/">📋 관리 대장</a>
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/list/">
+    <img src="{% static 'logo.png' %}" alt="로고" width="45" height="45" class="me-2 bg-white rounded-circle p-1">
+    화학물질 안전관리시스템
+</a>
+            <span class="text-white ms-3 badge bg-secondary">접속중: {{ current_user_site }}</span>
+            <div class="navbar-nav ms-auto">
+                <a class="btn-qna-custom ms-3" href="https://notebooklm.google.com/notebook/d4783d99-b22d-475c-a4f0-65fd8c9519f5?authuser=1" target="_blank">
+                    <span class="qna-title">Q&A</span>
+                    <span style="font-size: 1.1rem;">💡</span>
+                    <span class="qna-desc">화학물질관리법과 관련한 궁금한 점을 검색!</span>
+                </a>
+                <a class="nav-link active" href="/add/">📝 신규 등록</a>
+                <a class="nav-link" href="/list/">📋 관리 대장</a>
+                <a class="nav-link text-danger ms-3" href="/logout/">🚪 로그아웃</a>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
 <div class="container pb-5">
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}
         
         <div class="row mb-4 align-items-end bg-light p-3 rounded">
+            
+            {% if is_master %}
+                <div class="col-md-2">
+                    <label class="form-label-sm fw-bold">사업부 구분</label>
+                    <select name="division" id="division-select" class="form-select form-select-sm" onchange="updateSites()" required>
+                        <option value="">==선택하세요==</option>
+                        <option value="제조본부">제조본부</option>
+                        <option value="물류본부">물류본부</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label-sm fw-bold">사업장 구분</label>
+                    <select name="site_name" id="site-select" class="form-select form-select-sm" required>
+                        <option value="">==선택하세요==</option>
+                    </select>
+                </div>
+            {% else %}
+                <div class="col-md-4">
+                    <label class="form-label-sm fw-bold">사업장 정보 (자동지정)</label>
+                    <input type="text" class="form-control form-control-sm bg-white text-primary fw-bold" 
+                           value="🏢 {{ user_division }} / {{ current_user_site }}" readonly disabled>
+                </div>
+            {% endif %}
+
             <div class="col-md-2">
-                <label class="form-label-sm">사업부 구분</label>
-                <select name="division" id="division-select" class="form-select form-select-sm" onchange="updateSites()">
-                    <option value="">==선택하세요==</option>
-                    <option value="제조본부">제조본부</option>
-                    <option value="물류본부">물류본부</option>
-                </select>
+                <label class="form-label-sm fw-bold">등록자</label>
+                <input type="text" name="registrant" class="form-control form-control-sm" required placeholder="이름 입력">
+            </div>
+
+            <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-primary w-100" onclick="addProductBlock()">+ 제품 추가</button>
             </div>
             <div class="col-md-2">
-                <label class="form-label-sm">사업장 구분</label>
-                <select name="site_name" id="site-select" class="form-select form-select-sm">
-                    <option value="">==선택하세요==</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label-sm">등록자</label>
-                <input type="text" name="registrant" class="form-control form-select-sm">
-            </div>
-            <div class="col-md-2">
-                <button type="button" class="btn btn-sm btn-product-add px-3" onclick="addProductBlock()">+ 제품 추가</button>
+                <button type="button" class="btn btn-sm btn-primary w-100" onclick="addProductBlock()">+ 제품 추가</button>
+                
+                <button type="button" class="btn btn-sm btn-warning w-100 mt-1 fw-bold" onclick="fillRandomTestData()">🪄 테스트 자동 입력</button>
             </div>
         </div>
+
 
         <hr>
 
@@ -94,12 +149,27 @@
                     <div class="col-md-7">
                         <div class="row g-3">
                             <div class="col-md-12">
-                                <label class="form-label-sm">제품명</label>
-                                <div class="input-group input-group-sm">
-                                    <input type="text" name="product_name_0" class="form-control" placeholder="==MSDS의 제품명 기준==" required>
-                                    <button class="btn btn-outline-danger" type="button" onclick="removeProductBlock(this)">제품 삭제</button>
+                                    <div class="row">
+                                        
+                                        <div class="col-md-6">
+                                            <label class="form-label-sm">제품명</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="text" name="product_name_0" class="form-control" placeholder="==MSDS의 제품명 기준==" required>
+                                                <button class="btn btn-outline-danger" type="button" onclick="removeProductBlock(this)">제품 삭제</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label-sm text-danger fw-bold">MSDS 업로드 (PDF)</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" name="msds_file_0" class="form-control" accept=".pdf"> 
+                                                       
+                                                <button class="btn btn-outline-secondary" type="button" onclick="clearFileInput(this)">파일 삭제</button>
+                                            </div>
+                                        </div>
+
+                                    </div>
                                 </div>
-                            </div>
                             
                             <div class="col-md-6">
                                 <label class="form-label-sm">성상</label>
@@ -234,7 +304,7 @@
                                 </div>
                                 <div class="col-4">
                                     <label class="form-label-sm">함량(%)</label>
-                                    <input type="number" step="0.001" name="percentage_0[]" class="form-control form-control-sm" placeholder="최대값">
+                                    <input type="text" name="percentage_0[]" class="form-control form-control-sm" placeholder="함량" onchange="validatePercentage(this)">
                                 </div>
                                 <div class="col-2">
                                     <button type="button" class="btn btn-sm btn-add-row w-100" onclick="addCasRow(this, 0)">행 추가</button>
@@ -257,233 +327,404 @@
 </div>
 
 <script>
-    // 1. 사업장 연동
+    // [중요] 사업부/사업장 데이터 (이 부분은 지우지 마세요!)
+    var sites = {
+        "제조본부": ["안산공장", "용인1공장", "용인2공장", "제천공장", "음성공장", "계룡공장", "구미공장", "양산공장"],
+        "물류본부": ["동서울물류센터", "용인3물류센터", "호남물류센터", "양산2물류센터", "제주물류센터"]
+    };
+
     function updateSites() {
         var divisionSelect = document.getElementById("division-select");
         var siteSelect = document.getElementById("site-select");
-        var selectedValue = divisionSelect.value;
-        var sites = {
-            "제조본부": ["안산공장", "용인1공장", "용인2공장", "제천공장", "음성공장", "계룡공장", "구미공장", "양산공장"],
-            "물류본부": ["동서울물류센터", "용인3물류센터", "호남물류센터", "양산2물류센터", "제주물류센터"]
-        };
+        var selectedDivision = divisionSelect.value;
+
+        // 기존 옵션 초기화
         siteSelect.innerHTML = '<option value="">==선택하세요==</option>';
-        if (selectedValue in sites) {
-            var options = sites[selectedValue];
-            for (var i = 0; i < options.length; i++) {
-                var optionTag = document.createElement("option");
-                optionTag.value = options[i];
-                optionTag.text = options[i];
-                siteSelect.appendChild(optionTag);
-            }
-        }
-    }
 
-    // ----------------------------------------------------
-    // 2. [제품 추가] 기능
-    // ----------------------------------------------------
-    function addProductBlock() {
-        const blocks = document.querySelectorAll('.product-block');
-        const newIndex = blocks.length; 
-
-        // 템플릿 복사
-        const template = document.querySelector('.product-block[data-index="0"]');
-        const newBlock = template.cloneNode(true);
-        
-        newBlock.setAttribute('data-index', newIndex);
-
-        // 1. 모든 input, select 초기화 및 name/id 업데이트
-        const inputs = newBlock.querySelectorAll('input, select');
-        inputs.forEach(input => {
-            // (1) 값 및 체크 상태 초기화
-            if(input.type !== 'button') {
-                if(input.type === 'checkbox') {
-                    input.checked = false; 
-                } else {
-                    input.value = '';
-                }
-            }
-
-            // (2) ※ 표시된 항목들(물투입, 시설용량)은 초기화 시 disabled 처리
-            if(input.name && (input.name.includes('water_input') || input.name.includes('usage_facility_vol'))) {
-                input.disabled = true; // 새 줄에서는 다시 비활성화 상태로 시작
-            }
-
-            // (3) name 속성 업데이트 (_0 -> _1)
-            if (input.name) {
-                input.name = input.name.replace(/_\d+/, '_' + newIndex);
-            }
-            // (4) id 속성 업데이트 (라벨과 연결을 위해 필수!)
-            if (input.id) {
-                input.id = input.id.replace(/_\d+/, '_' + newIndex);
-            }
-        });
-
-        // 2. 라벨의 for 속성 업데이트 (이게 되어야 라벨을 클릭해도 체크됨)
-        const labels = newBlock.querySelectorAll('label');
-        labels.forEach(label => {
-            if (label.htmlFor) {
-                label.htmlFor = label.htmlFor.replace(/_\d+/, '_' + newIndex);
-            }
-        });
-
-        // 3. 숨겨져 있던 영역들 다시 숨김 처리 (초기 상태로 복구)
-        const facilityDivs = newBlock.querySelectorAll('.facility-inputs');
-        facilityDivs.forEach(div => div.classList.add('d-none'));
-
-        const etcArea = newBlock.querySelector('.etc-input-area');
-        if(etcArea) etcArea.classList.add('d-none');
-
-        // 4. 행 추가 버튼 등 이벤트 연결
-        const addBtn = newBlock.querySelector('.btn-add-row');
-        addBtn.setAttribute('onclick', `addCasRow(this, ${newIndex})`);
-
-        // 5. CAS 줄 초기화
-        const casContainer = newBlock.querySelector('.cas-container');
-        const casRows = casContainer.querySelectorAll('.row');
-        for(let i=1; i<casRows.length; i++) {
-            casRows[i].remove();
-        }
-
-        document.getElementById('product-list-area').appendChild(newBlock);
-    }
-
-    // ----------------------------------------------------
-    // 3. [제품 삭제] 기능 (중요: 삭제 후 번호 다시 매기기)
-    // ----------------------------------------------------
-    function removeProductBlock(btn) {
-        const blocks = document.querySelectorAll('.product-block');
-        // 최소 1개는 남겨야 함
-        if (blocks.length <= 1) {
-            alert("최소 1개의 제품 정보는 있어야 합니다.");
-            return;
-        }
-
-        // 해당 블록 삭제
-        btn.closest('.product-block').remove();
-
-        // [핵심] 남은 블록들의 번호(Index)를 0, 1, 2... 순서대로 다시 매김
-        reindexBlocks();
-    }
-
-    function reindexBlocks() {
-        const blocks = document.querySelectorAll('.product-block');
-        blocks.forEach((block, index) => {
-            // data-index 업데이트
-            block.setAttribute('data-index', index);
-
-            // 내부 input들의 name/id 업데이트
-            const inputs = block.querySelectorAll('input, select');
-            inputs.forEach(input => {
-                if (input.name) {
-                    input.name = input.name.replace(/_\d+/, '_' + index);
-                }
-                if (input.id) {
-                    input.id = input.id.replace(/_\d+/, '_' + index);
-                }
+        if (selectedDivision in sites) {
+            var availableSites = sites[selectedDivision];
+            availableSites.forEach(function(site) {
+                var option = document.createElement("option");
+                option.value = site;
+                option.text = site;
+                siteSelect.appendChild(option);
             });
-
-            // 라벨의 for 속성 업데이트
-            const labels = block.querySelectorAll('label');
-            labels.forEach(label => {
-                if (label.htmlFor) {
-                    label.htmlFor = label.htmlFor.replace(/_\d+/, '_' + index);
-                }
-            });
-
-            // 행 추가 버튼 업데이트
-            const addBtn = block.querySelector('.btn-add-row');
-            if(addBtn) {
-                addBtn.setAttribute('onclick', `addCasRow(this, ${index})`);
-            }
-        });
+        }
     }
 
-    // ----------------------------------------------------
-    // 4. [행 추가] 기능 (CAS)
-    // ----------------------------------------------------
-    function addCasRow(btn, pIndex) {
-        var container = btn.closest('.col-md-5').querySelector('.cas-container');
-        
-        var newRowHtml = `
-            <div class="row g-2 mb-2 align-items-center">
-                <div class="col-6">
-                    <input type="text" name="cas_no_${pIndex}[]" class="form-control form-control-sm" placeholder="예: 7697-37-2">
-                </div>
-                <div class="col-4">
-                    <input type="number" step="0.001" name="percentage_${pIndex}[]" class="form-control form-control-sm" placeholder="최대값">
-                </div>
-                <div class="col-2">
-                    <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeRow(this)">행 삭제</button>
-                </div>
-            </div>
-        `;
-        
-        var div = document.createElement('div');
-        div.innerHTML = newRowHtml;
-        container.appendChild(div);
-    }
-
-    function removeRow(btn) {
-        btn.closest('.row').remove();
-    }
-
-    // ----------------------------------------------------
-    // 5. [UI 토글] 기능들 (기타, 시설 체크박스)
-    // ----------------------------------------------------
-
-    // [기타 선택 시 입력창 토글 함수]
+    // 1. 기타 입력창 토글
     function toggleEtcInput(selectElement) {
-        // 1. 현재 선택한 select 박스의 바로 옆에 있는(같은 부모 아래) .etc-input-area 찾기
-        var parentDiv = selectElement.parentElement; 
+        var parentDiv = selectElement.parentElement;
         var etcInputArea = parentDiv.querySelector('.etc-input-area');
-
-        // 2. 선택된 값이 "7. 기타"인지 확인
         if (selectElement.value === "7. 기타") {
-            // 맞으면 보여주기 (d-none 제거)
             etcInputArea.classList.remove('d-none');
         } else {
-            // 아니면 숨기기 (d-none 추가)
             etcInputArea.classList.add('d-none');
-            
-            // (센스) 숨길 때 기존에 썼던 내용이 있다면 지워줌
             var inputField = etcInputArea.querySelector('input');
             if (inputField) inputField.value = '';
         }
     }
 
-    // [NEW] 시설 체크박스 토글 함수
+    // 2. 시설 체크박스 토글
     function toggleFacilityInputs(checkbox) {
-        var parentRow = checkbox.closest('.d-flex');
-        var inputsDiv = parentRow.querySelector('.facility-inputs');
-        var inputs = inputsDiv.querySelectorAll('input');
+        // 체크박스와 같은 부모(d-flex) 안에 있는 .facility-inputs 찾기
+        var parentDiv = checkbox.closest('.d-flex'); 
+        // 만약 구조가 복잡하면 더 상위에서 찾기
+        if (!parentDiv) parentDiv = checkbox.parentElement.parentElement;
+        
+        var inputsDiv = parentDiv.querySelector('.facility-inputs');
 
         if (checkbox.checked) {
-            inputsDiv.classList.remove('d-none'); // 보이기
+            inputsDiv.classList.remove('d-none');
         } else {
-            inputsDiv.classList.add('d-none');    // 숨기기
-            // 숨길 때 내용 초기화 (선택 사항)
+            inputsDiv.classList.add('d-none');
+            // 꺼질 때 내부 값 초기화
+            var inputs = inputsDiv.querySelectorAll('input');
             inputs.forEach(function(input) {
                 input.value = '';
+                if(input.type === 'checkbox') input.checked = false;
+                if(input.disabled !== undefined) input.disabled = false; // 희석/수조 체크박스 로직 때문에 초기화 필요
             });
+            // 희석/수조 disabled 상태 다시 잡기 (사용시설의 경우)
+            if(checkbox.name.includes('is_usage')) {
+                inputs.forEach(function(input) {
+                   if(input.name.includes('water_input') || input.name.includes('usage_facility_vol')) {
+                       input.disabled = true;
+                   }
+                });
+            }
         }
     }
 
-    // [수정된 입력창 토글 함수] 구조가 바뀌어도 안전하게 찾습니다.
+    // 3. 희석/수조 체크박스 토글 (활성화/비활성화)
     function toggleInputState(checkbox) {
-        // 1. 체크박스가 속한 '가장 가까운 기둥(col-md-3)'을 먼저 찾습니다.
+        // 체크박스 바로 뒤나 근처에 있는 input[type=number] 찾기
         var parentCol = checkbox.closest('.col-md-3');
+        var targetInput = parentCol.querySelector('input[type="number"]');
         
-        // 2. 그 기둥 안에 있는 '숫자 입력창(type=number)'을 찾습니다.
-        var inputField = parentCol.querySelector('input[type="number"]');
-        
-        // 3. 활성/비활성 처리
         if (checkbox.checked) {
-            inputField.disabled = false; // 활성화 (흰색)
-            inputField.focus();          // 입력하기 편하게 포커스 이동
+            targetInput.disabled = false;
         } else {
-            inputField.disabled = true;  // 비활성화 (회색)
-            inputField.value = '';       // 비활성 시 값 초기화
+            targetInput.disabled = true;
+            targetInput.value = '';
         }
+    }
+
+    // 4. CAS 행 추가
+    function addCasRow(btn, productIndex) {
+        var container = btn.closest('.cas-container');
+        var newRow = document.createElement('div');
+        newRow.className = 'row g-2 mb-2 align-items-end';
+        newRow.innerHTML = `
+            <div class="col-6">
+                <input type="text" name="cas_no_${productIndex}[]" class="form-control form-control-sm" placeholder="CAS No.">
+            </div>
+            <div class="col-4">
+                <input type="text" name="percentage_${productIndex}[]" class="form-control form-control-sm" placeholder="함량" onchange="validatePercentage(this)">
+            </div>
+            <div class="col-2">
+                <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="this.closest('.row').remove()">삭제</button>
+            </div>
+        `;
+        container.appendChild(newRow);
+    }
+
+    // 5. 파일 입력 초기화 (NEW)
+    function clearFileInput(btn) {
+        var fileInput = btn.previousElementSibling;
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+
+    // 6. 제품 블록 삭제
+    function removeProductBlock(btn) {
+        var block = btn.closest('.product-block');
+        // 첫 번째 블록(기본 블록)은 내용은 지우되 삭제하지 않음 (선택사항)
+        // 여기서는 그냥 다 삭제 가능하게 하고 인덱스 재정렬 하는 방식 대신,
+        // 화면에서만 지우고 백엔드에서 처리하거나, 간단히 remove() 처리
+        
+        // 만약 전체 블록이 1개밖에 없으면 삭제 대신 초기화만
+        var allBlocks = document.querySelectorAll('.product-block');
+        if (allBlocks.length <= 1 && block.getAttribute('data-index') == '0') {
+             alert('최소 1개의 제품은 입력해야 합니다.');
+             return;
+        }
+        
+        block.remove();
+        updateListCount(); // 개수 업데이트
+    }
+
+    // 7. [중요] 제품 블록 추가 (여기가 문제였을 겁니다!)
+    function addProductBlock() {
+        var idx = document.querySelectorAll('.product-block').length;
+        
+        // 관리자 여부에 따라 required 속성 결정 (Django 템플릿 태그 사용)
+        var requiredAttr = "{% if not is_master %}required{% endif %}";
+
+        var template = `
+            <div class="product-block border-top pt-3 mt-3" data-index="${idx}">
+                <div class="row g-3">
+                    
+                    <div class="col-md-7">
+                        <div class="row g-3">
+                            
+                            <div class="col-md-12">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">제품명</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" name="product_name_${idx}" class="form-control" placeholder="제품명" required>
+                                            <button class="btn btn-outline-danger" type="button" onclick="removeProductBlock(this)">제품 삭제</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm text-danger fw-bold">MSDS 업로드</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="file" name="msds_file_${idx}" class="form-control" accept=".pdf">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="clearFileInput(this)">파일 삭제</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label-sm">성상</label>
+                                <select name="state_${idx}" class="form-select form-select-sm">
+                                    <option value="">==선택하세요==</option>
+                                    <option value="액체">액체</option>
+                                    <option value="기체">기체</option>
+                                    <option value="고체">고체</option>
+                                    <option value="반고체">반고체</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label-sm">용도</label>
+                                <div class="d-flex">
+                                    <select name="usage_purpose_${idx}" class="form-select form-select-sm me-2" onchange="toggleEtcInput(this)">
+                                        <option value="">==선택하세요==</option>
+                                        <option value="1. 원료 및 첨가제">1. 원료 및 첨가제</option>
+                                        <option value="2. 공정보조물질">2. 공정보조물질</option>
+                                        <option value="3. 시설/설비 유지보수">3. 시설/설비 유지보수</option>
+                                        <option value="4. 시험용 시약">4. 시험용 시약</option>
+                                        <option value="5. 폐수처리약품">5. 폐수처리약품</option>
+                                        <option value="6. 보관/저장(운송업/창고업 해당)">6. 보관/저장</option>
+                                        <option value="7. 기타">7. 기타</option>
+                                    </select>
+                                    <div class="etc-input-area d-none w-100">
+                                        <input type="text" name="usage_detail_${idx}" class="form-control form-control-sm" placeholder="기타 상세">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-4"> 
+                                <div class="d-flex align-items-center">
+                                    <div class="form-check me-3" style="min-width: 110px;">
+                                        <input class="form-check-input" type="checkbox" name="is_storage_${idx}" id="chk_storage_${idx}" onchange="toggleFacilityInputs(this)">
+                                        <label class="form-check-label fw-bold text-danger border border-danger rounded px-2" for="chk_storage_${idx}">저장시설</label>
+                                    </div>
+                                    <div class="row g-1 flex-grow-1 d-none facility-inputs">
+                                        <div class="col-4"><input type="text" name="storage_loc_${idx}" class="form-control form-control-sm" placeholder="시설 위치"></div>
+                                        <div class="col-4"><input type="number" step="0.0000001" name="storage_vol_${idx}" class="form-control form-control-sm" placeholder="시설 용량"></div>
+                                        <div class="col-4"><input type="number" step="0.0000001" name="specific_gravity_${idx}" class="form-control form-control-sm" placeholder="비중"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="form-check me-3" style="min-width: 110px;">
+                                        <input class="form-check-input" type="checkbox" name="is_keeping_${idx}" id="chk_keeping_${idx}" onchange="toggleFacilityInputs(this)">
+                                        <label class="form-check-label fw-bold text-primary border border-primary rounded px-2" for="chk_keeping_${idx}">보관시설</label>
+                                    </div>
+                                    <div class="row g-1 flex-grow-1 d-none facility-inputs">
+                                        <div class="col-6"><input type="text" name="keeping_loc_${idx}" class="form-control form-control-sm" placeholder="보관 장소"></div>
+                                        <div class="col-6"><input type="number" step="0.0000001" name="keeping_max_${idx}" class="form-control form-control-sm" placeholder="최대 보관량"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="form-check me-3" style="min-width: 110px;">
+                                        <input class="form-check-input" type="checkbox" name="is_usage_${idx}" id="chk_usage_${idx}" onchange="toggleFacilityInputs(this)">
+                                        <label class="form-check-label fw-bold text-success border border-success rounded px-2" for="chk_usage_${idx}">사용시설</label>
+                                    </div>
+                                    <div class="row g-1 flex-grow-1 d-none facility-inputs">
+                                        <div class="col-md-3"><input type="text" name="usage_loc_${idx}" class="form-control form-control-sm" placeholder="사용 장소"></div>
+                                        <div class="col-md-3"><input type="number" step="0.0000001" name="usage_max_${idx}" class="form-control form-control-sm" placeholder="최대 사용량"></div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-center mb-1"><input type="checkbox" class="form-check-input me-1" id="chk_water_${idx}" onchange="toggleInputState(this)"><label class="form-label-sm text-muted mb-0" for="chk_water_${idx}">희석</label></div>
+                                            <input type="number" step="0.0000001" name="water_input_${idx}" class="form-control form-control-sm" disabled>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-center mb-1"><input type="checkbox" class="form-check-input me-1" id="chk_vol_${idx}" onchange="toggleInputState(this)"><label class="form-label-sm text-muted mb-0" for="chk_vol_${idx}">수조</label></div>
+                                            <input type="number" step="0.0000001" name="usage_facility_vol_${idx}" class="form-control form-control-sm" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="col-md-5 border-start ps-4">
+                        <label class="form-label-sm text-primary">구성 성분 정보 (MSDS 참조)</label>
+                        <div class="cas-container">
+                            <div class="row g-2 mb-2 align-items-end">
+                                <div class="col-6"><label class="form-label-sm">CAS No.</label><input type="text" name="cas_no_${idx}[]" class="form-control form-control-sm" placeholder="CAS No."></div>
+                                <div class="col-4"><label class="form-label-sm">함량(%)</label><input type="number" step="0.001" name="percentage_${idx}[]" class="form-control form-control-sm" placeholder="함량"></div>
+                                <div class="col-2"><button type="button" class="btn btn-sm btn-add-row w-100" onclick="addCasRow(this, ${idx})">행 추가</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        `;
+        
+        // HTML 삽입
+        document.getElementById('product-list-area').insertAdjacentHTML('beforeend', template);
+        updateListCount();
+    }
+
+    // 8. 총 제품 수 업데이트 (폼 전송용)
+    function updateListCount() {
+        var count = document.querySelectorAll('.product-block').length;
+        // HTML 어딘가에 <input type="hidden" name="list_count" value="1"> 이 있어야 함.
+        // 없으면 동적으로 만들어줌 (안전장치)
+        var hiddenInput = document.querySelector('input[name="list_count"]');
+        if (!hiddenInput) {
+            hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'list_count';
+            document.querySelector('form').appendChild(hiddenInput);
+        }
+        hiddenInput.value = count;
+    }
+    // [NEW] 함량 유효성 검사 (숫자 혼용 금지)
+    function validatePercentage(input) {
+        var val = input.value.trim();
+        if (val === "") return;
+
+        // 1. 숫자인지 확인 (소수점 포함)
+        var isNumber = !isNaN(parseFloat(val)) && isFinite(val);
+        
+        // 2. 숫자가 아닌데, 숫자(0~9)가 섞여 있는지 확인 (예: "5이상", "약10")
+        var hasDigit = /\d/.test(val);
+
+        if (!isNumber && hasDigit) {
+            alert("숫자와 문자를 섞어 쓸 수 없습니다.\n예) '5이상' (X), '5' (O), '영업비밀' (O)");
+            input.value = ""; // 입력 초기화
+            input.focus();
+        }
+    }
+    // 페이지 로드 시 초기 실행
+    document.addEventListener("DOMContentLoaded", function() {
+        updateListCount();
+    });
+    // ==========================================
+    // [NEW] 테스트용 데이터 랜덤 자동 입력 함수
+    // ==========================================
+    function fillRandomTestData() {
+        // 1. 등록자 (비어있을 때만 채움)
+        var regInput = document.querySelector('input[name="registrant"]');
+        if (regInput && !regInput.value) {
+            regInput.value = "테스터_" + Math.floor(Math.random() * 1000);
+        }
+
+        // 2. 화면에 있는 모든 '제품 블록'을 순회하며 채우기
+        var blocks = document.querySelectorAll('.product-block');
+        blocks.forEach(function(block) {
+            var idx = block.getAttribute('data-index');
+
+            // 제품명
+            block.querySelector('input[name="product_name_' + idx + '"]').value = "랜덤화학제품_" + Math.floor(Math.random() * 10000);
+
+            // 성상 (4개 중 1개 랜덤)
+            var states = ["액체", "기체", "고체", "반고체"];
+            block.querySelector('select[name="state_' + idx + '"]').value = states[Math.floor(Math.random() * states.length)];
+
+            // 용도 (7개 중 1개 랜덤)
+            var purposes = [
+                "1. 원료 및 첨가제", "2. 공정보조물질", "3. 시설/설비 유지보수",
+                "4. 시험용 시약", "5. 폐수처리약품", "6. 보관/저장(운송업/창고업 해당)", "7. 기타"
+            ];
+            var randomPurpose = purposes[Math.floor(Math.random() * purposes.length)];
+            var purposeSelect = block.querySelector('select[name="usage_purpose_' + idx + '"]');
+            purposeSelect.value = randomPurpose;
+            
+            // 용도 변경에 따른 기타창 열기(기존 함수 활용)
+            toggleEtcInput(purposeSelect); 
+            if (randomPurpose === "7. 기타") {
+                block.querySelector('input[name="usage_detail_' + idx + '"]').value = "기타용도_" + Math.floor(Math.random() * 100);
+            }
+
+            // 헬퍼 함수: 시설 체크박스 랜덤 온오프 및 입력
+            function fillFacility(type, isCheckName, locName, numNames) {
+                var chk = block.querySelector('input[name="' + isCheckName + '"]');
+                if (!chk) return;
+                
+                // 50% 확률로 체크
+                chk.checked = Math.random() > 0.5; 
+                toggleFacilityInputs(chk); // 기존 함수로 입력창 열기/닫기
+
+                if (chk.checked) {
+                    var locInput = block.querySelector('input[name="' + locName + '"]');
+                    if (locInput) locInput.value = "테스트구역_" + Math.floor(Math.random() * 10);
+
+                    numNames.forEach(function(name) {
+                        var numInput = block.querySelector('input[name="' + name + '"]');
+                        if (numInput && !numInput.disabled) {
+                            numInput.value = (Math.random() * 99 + 1).toFixed(2); // 1~100 랜덤
+                        }
+                    });
+                }
+            }
+
+            // 시설 정보 채우기 실행
+            fillFacility('storage', 'is_storage_' + idx, 'storage_loc_' + idx, ['storage_vol_' + idx, 'specific_gravity_' + idx]);
+            fillFacility('keeping', 'is_keeping_' + idx, 'keeping_loc_' + idx, ['keeping_max_' + idx]);
+            
+            // 사용시설은 조금 특이해서 따로 처리 (희석, 수조 체크박스 포함)
+            var usageChk = block.querySelector('input[name="is_usage_' + idx + '"]');
+            if (usageChk) {
+                usageChk.checked = Math.random() > 0.5;
+                toggleFacilityInputs(usageChk);
+                if (usageChk.checked) {
+                    block.querySelector('input[name="usage_loc_' + idx + '"]').value = "사용구역_" + Math.floor(Math.random() * 10);
+                    block.querySelector('input[name="usage_max_' + idx + '"]').value = (Math.random() * 49 + 1).toFixed(2);
+
+                    // 희석, 수조 랜덤 체크 (50% 확률)
+                    var chkWater = block.querySelector('#chk_water_' + idx);
+                    var chkVol = block.querySelector('#chk_vol_' + idx);
+                    
+                    if (chkWater) { chkWater.checked = Math.random() > 0.5; toggleInputState(chkWater); }
+                    if (chkVol) { chkVol.checked = Math.random() > 0.5; toggleInputState(chkVol); }
+
+                    if (chkWater && chkWater.checked) {
+                        block.querySelector('input[name="water_input_' + idx + '"]').value = (Math.random() * 10 + 1).toFixed(2);
+                    }
+                    if (chkVol && chkVol.checked) {
+                        block.querySelector('input[name="usage_facility_vol_' + idx + '"]').value = (Math.random() * 10 + 1).toFixed(2);
+                    }
+                }
+            }
+
+            // CAS No. 및 함량 세팅 (실제 테스트용 DB 데이터 샘플)
+            var sampleCasList = ['1310-73-2', '7732-18-5', '50-00-0', '7697-37-2', '78-93-3'];
+            var casInputs = block.querySelectorAll('input[name="cas_no_' + idx + '[]"]');
+            var pctInputs = block.querySelectorAll('input[name="percentage_' + idx + '[]"]');
+
+            casInputs.forEach(function(input, i) {
+                input.value = sampleCasList[Math.floor(Math.random() * sampleCasList.length)];
+                if (pctInputs[i]) {
+                    // 함량: 0.01 ~ 99.99 사이 랜덤
+                    pctInputs[i].value = (Math.random() * 99.98 + 0.01).toFixed(2);
+                }
+            });
+        });
     }
 </script>
 
