@@ -82,7 +82,7 @@ def calculate_usage_ton_process(item_or_val, percent_val=0.0):
         if total_diluted_weight == 0:
             return 0.0
             
-        final_percent = (u_max * pct) / total_diluted_weight
+        final_percent = (float(u_max) * float(pct)) / total_diluted_weight
         
         # 2. 규제 여부 확인 (DB 조회)
         reg_candidates = ChemicalRegulation.objects.filter(cas_no=cas)
